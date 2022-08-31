@@ -649,3 +649,19 @@ def resnet152(class_num=1001):
                   [256, 512, 1024, 2048],
                   [1, 2, 2, 2],
                   class_num)
+
+
+def get_resnet(resnet_type='18'):
+    if resnet_type == '18':
+        return resnet18(class_num=1001)
+    elif resnet_type == '34':
+        return resnet34(class_num=1001)
+    elif resnet_type == '50':
+        return resnet50(class_num=1001)
+    elif resnet_type == '101':
+        return resnet101(class_num=1001)
+    elif resnet_type == '152':
+        return resnet152(class_num=1001)
+    else:
+        # return resnet18 by default
+        return resnet18(class_num=1001)
