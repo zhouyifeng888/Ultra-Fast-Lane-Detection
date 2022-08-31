@@ -71,29 +71,29 @@ class ParsingNet(nn.Cell):
             nn.Dense(2048, self.total_dim)
         ])
 
+        self.concat = P.Concat(axis=1)
+
         self.pool = nn.Conv2d(512, 8, 1, pad_mode="pad", padding=0, has_bias=True) if backbone_type in [
             '34', '18'] else nn.Conv2d(2048, 8, 1, pad_mode="pad", padding=0, has_bias=True)
 
     def construct(self, x):
         x2, x3, fea = self.backbone(x)
-        if self.use_aux:
+        if self.use_aux and self.training:
             x2 = self.aux_header2(x2)
             x3 = self.aux_header3(x3)
-            x3 = torch.nn.functional.interpolate(
-                x3, scale_factor=2, mode='bilinear')
+            x3 = P.ResizeBilinear((x3.shape[2] * 2, x3.shape[3] * 2))(x3)
             x4 = self.aux_header4(fea)
-            x4 = torch.nn.functional.interpolate(
-                x4, scale_factor=4, mode='bilinear')
-            aux_seg = torch.cat([x2, x3, x4], dim=1)
+            x4 = P.ResizeBilinear((x4.shape[2] * 4, x4.shape[3] * 4))(x4)
+            aux_seg = self.concat((x2, x3, x4))
             aux_seg = self.aux_combine(aux_seg)
         else:
             aux_seg = None
 
-        fea = self.pool(fea).view(-1, 1800)
+        fea = self.pool(fea).view((-1, 1800))
 
-        group_cls = self.classier(fea).view(-1, *self.cls_dim)
+        group_cls = self.classier(fea).view((-1, *self.cls_dim))
 
-        if self.use_aux:
+        if self.use_aux and self.training:
             return group_cls, aux_seg
 
         return group_cls
