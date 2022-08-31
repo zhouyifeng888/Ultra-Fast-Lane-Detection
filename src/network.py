@@ -1,6 +1,7 @@
 import numpy as np
 
 import mindspore.nn as nn
+import mindspore.ops as P
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
 
 from src.resnet import get_resnet
