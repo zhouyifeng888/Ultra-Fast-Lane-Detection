@@ -2,9 +2,6 @@ import numpy as np
 
 import mindspore.nn as nn
 import mindspore.ops as P
-from mindspore.train.serialization import load_checkpoint, load_param_into_net
-
-from src.resnet import get_resnet
 
 
 class ConvBNRelu(nn.Cell):
@@ -24,18 +21,14 @@ class ConvBNRelu(nn.Cell):
 
 
 class ParsingNet(nn.Cell):
-    def __init__(self, backbone_type, backbone_pretrain, cls_dim=(37, 10, 4), use_aux=False):
+    def __init__(self, backbone_type, backbone, cls_dim=(37, 10, 4), use_aux=False):
         super(ParsingNet, self).__init__()
 
         self.cls_dim = cls_dim
         self.use_aux = use_aux
         self.total_dim = int(np.prod(cls_dim))
 
-        self.backbone = get_resnet(backbone_type)
-        if backbone_pretrain != '' and backbone_pretrain is not None:
-            param_dict = load_checkpoint(backbone_pretrain)
-            load_param_into_net(self.backbone, param_dict)
-            print('load resnet pretrain ckpt success')
+        self.backbone = backbone
 
         if self.use_aux:
             self.aux_header2 = nn.SequentialCell([

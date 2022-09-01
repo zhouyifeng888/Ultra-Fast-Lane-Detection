@@ -82,10 +82,7 @@ def parse_yaml(yaml_path):
     """
     with open(yaml_path, 'r') as fin:
         try:
-            print('start...')
             cfgs = yaml.load_all(fin.read(), Loader=yaml.FullLoader)
-            print('end...')
-            print(cfgs)
             cfgs = [x for x in cfgs]
             if len(cfgs) == 1:
                 cfg_helper = {}
