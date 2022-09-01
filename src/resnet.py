@@ -20,7 +20,7 @@ import mindspore.nn as nn
 import mindspore.ops as ops
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
-from src.model_utils.config import config
+from src.config import config
 
 
 def conv_variance_scaling_initializer(in_channel, out_channel, kernel_size):
@@ -28,7 +28,7 @@ def conv_variance_scaling_initializer(in_channel, out_channel, kernel_size):
     scale = 1.0
     scale /= max(1., fan_in)
     stddev = (scale ** 0.5) / .87962566103423978
-    if config.net_name == "resnet152":
+    if config.backbone == "152":
         stddev = (scale ** 0.5)
     mu, sigma = 0, stddev
     weight = truncnorm(-2, 2, loc=mu, scale=sigma).rvs(out_channel *
@@ -121,7 +121,7 @@ def _conv3x3(in_channel, out_channel, stride=1, use_se=False, res_base=False):
         weight_shape = (out_channel, in_channel, 3, 3)
         weight = Tensor(kaiming_normal(
             weight_shape, mode="fan_out", nonlinearity='relu'))
-        if config.net_name == "resnet152":
+        if config.backbone == "152":
             weight = _weight_variable(weight_shape)
     if res_base:
         return nn.Conv2d(in_channel, out_channel, kernel_size=3, stride=stride,
@@ -138,7 +138,7 @@ def _conv1x1(in_channel, out_channel, stride=1, use_se=False, res_base=False):
         weight_shape = (out_channel, in_channel, 1, 1)
         weight = Tensor(kaiming_normal(
             weight_shape, mode="fan_out", nonlinearity='relu'))
-        if config.net_name == "resnet152":
+        if config.backbone == "152":
             weight = _weight_variable(weight_shape)
     if res_base:
         return nn.Conv2d(in_channel, out_channel, kernel_size=1, stride=stride,
@@ -155,7 +155,7 @@ def _conv7x7(in_channel, out_channel, stride=1, use_se=False, res_base=False):
         weight_shape = (out_channel, in_channel, 7, 7)
         weight = Tensor(kaiming_normal(
             weight_shape, mode="fan_out", nonlinearity='relu'))
-        if config.net_name == "resnet152":
+        if config.backbone == "152":
             weight = _weight_variable(weight_shape)
     if res_base:
         return nn.Conv2d(in_channel, out_channel,
@@ -186,7 +186,7 @@ def _fc(in_channel, out_channel, use_se=False):
     else:
         weight_shape = (out_channel, in_channel)
         weight = Tensor(kaiming_uniform(weight_shape, a=math.sqrt(5)))
-        if config.net_name == "resnet152":
+        if config.backbone == "152":
             weight = _weight_variable(weight_shape)
     return nn.Dense(in_channel, out_channel, has_bias=True, weight_init=weight, bias_init=0)
 
@@ -234,7 +234,7 @@ class ResidualBlock(nn.Cell):
         self.conv3 = _conv1x1(channel, out_channel,
                               stride=1, use_se=self.use_se)
         self.bn3 = _bn(out_channel)
-        if config.optimizer == "Thor" or config.net_name == "resnet152":
+        if config.optimizer == "Thor" or config.backbone == "152":
             self.bn3 = _bn_last(out_channel)
         if self.se_block:
             self.se_global_pool = ops.ReduceMean(keep_dims=False)
