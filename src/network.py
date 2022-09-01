@@ -29,7 +29,7 @@ class ParsingNet(nn.Cell):
 
         self.cls_dim = cls_dim
         self.use_aux = use_aux
-        self.total_dim = np.prod(cls_dim)
+        self.total_dim = int(np.prod(cls_dim))
 
         self.backbone = get_resnet(backbone_type)
         if backbone_pretrain != '' and backbone_pretrain is not None:
@@ -91,7 +91,7 @@ class ParsingNet(nn.Cell):
 
         fea = self.pool(fea).view((-1, 1800))
 
-        group_cls = self.classier(fea).view((-1, *self.cls_dim))
+        group_cls = self.classier(fea).view((-1, self.cls_dim[0], self.cls_dim[1], self.cls_dim[2]))
 
         if self.use_aux and self.training:
             return group_cls, aux_seg

@@ -16,6 +16,6 @@ if __name__ == '__main__':
     input_shape = (1, 3, 288, 800)
     t_data = Tensor(np.ones(input_shape), ms.float32)
     
-    net = ParsingNet('18', 'resnet18_ascend_v150_imagenet2012_official_cv_top1acc70.47_top5acc89.61.ckpt')
+    net = ParsingNet('18', '../resnet18_ascend_v150_imagenet2012_official_cv_top1acc70.47_top5acc89.61.ckpt')
     result = net(t_data)
     print(f'result.shape:{result.shape}')
