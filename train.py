@@ -6,6 +6,7 @@ from mindspore.train.serialization import load_checkpoint, load_param_into_net
 
 from src.resnet import get_resnet
 from src.network import ParsingNet
+from src.utils import print_trainable_params_count
 
 
 if __name__ == '__main__':
@@ -23,9 +24,17 @@ if __name__ == '__main__':
     load_param_into_net(backbone, param_dict)
     print('load resnet pretrain ckpt success')
     
-    net = ParsingNet('18', backbone)
-    result = net(t_data)
-    print(f'result.shape:{result.shape}')
+    net_train = ParsingNet('18', backbone, use_aux=True)
+    net_train.set_train(True)
+    print_trainable_params_count(net_train)
+    result = net_train(t_data)
+    print(f'net_train result[0].shape:{result[0].shape},result[1].shape:{result[1].shape}')
+    
+    net_eval = ParsingNet('18', backbone, use_aux=False)
+    net_eval.set_train(False)
+    print_trainable_params_count(net_eval)
+    result = net_eval(t_data)
+    print(f'net_eval result.shape:{result.shape}')
     
     
     
