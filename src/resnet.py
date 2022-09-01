@@ -458,7 +458,7 @@ class ResNet(nn.Cell):
 
         self.mean = ops.ReduceMean(keep_dims=True)
         self.flatten = nn.Flatten()
-        self.end_point = _fc(out_channels[3], num_classes, use_se=self.use_se)
+#        self.end_point = _fc(out_channels[3], num_classes, use_se=self.use_se)
 
     def _make_layer(self, block, layer_num, in_channel, out_channel, stride, use_se=False, se_block=False):
         """
