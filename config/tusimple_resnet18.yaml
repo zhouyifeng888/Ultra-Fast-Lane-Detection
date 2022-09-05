@@ -18,9 +18,9 @@ warmup : 'linear'
 warmup_iters : 100
 
 # NETWORK
+use_aux : True
 backbone : '18'
 griding_num : 100
-use_aux : True
 
 # LOSS
 sim_loss_w : 1.0
