@@ -24,13 +24,16 @@ if __name__ == '__main__':
     load_param_into_net(backbone, param_dict)
     print('load resnet pretrain ckpt success')
     
-    net_train = ParsingNet('18', backbone, use_aux=True)
+    griding_num=200
+    cls_num_per_lane=18
+    num_lanes=4
+    net_train = ParsingNet('18', backbone, cls_dim=(griding_num+1,cls_num_per_lane, num_lanes),use_aux=True)
     net_train.set_train(True)
     print_trainable_params_count(net_train)
     result = net_train(t_data)
     print(f'net_train result[0].shape:{result[0].shape},result[1].shape:{result[1].shape}')
     
-    net_eval = ParsingNet('18', backbone, use_aux=False)
+    net_eval = ParsingNet('18', backbone, cls_dim=(griding_num+1,cls_num_per_lane, num_lanes), use_aux=False)
     net_eval.set_train(False)
     print_trainable_params_count(net_eval)
     result = net_eval(t_data)
