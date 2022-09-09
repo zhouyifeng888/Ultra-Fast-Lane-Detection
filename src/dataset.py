@@ -195,11 +195,10 @@ def create_lane_dataset(data_root_path, data_list_path, batch_size,
                           output_columns=['label', 'cls_label'], column_order=['image', 'cls_label', 'label'],
                           num_parallel_workers=num_workers)
 
-    if is_train:
-        dataset = dataset.map(operations=[free_scale_mask],
-                              input_columns=['label'],
-                              output_columns=['seg_label'],
-                              num_parallel_workers=num_workers)
+    dataset = dataset.map(operations=[free_scale_mask],
+                          input_columns=['label'],
+                          output_columns=['seg_label'],
+                          num_parallel_workers=num_workers)
 
     transform_img = [
         vision.Resize((288, 800)),
