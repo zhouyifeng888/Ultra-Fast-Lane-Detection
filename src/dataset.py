@@ -6,8 +6,10 @@ import numpy as np
 from PIL import Image
 
 import mindspore.dataset as ds
+import mindspore.dataset.vision.c_transforms as vision
 
 from src.config import config
+
 
 class LaneDataset:
     def __init__(self, root_path, list_path):
@@ -87,10 +89,11 @@ def random_process(img, label, angle=6, max_offset1=100, max_offset2=200):
 
     return img, label
 
-def find_start_pos(row_sample,start_line):
-    l,r = 0,len(row_sample)-1
+
+def find_start_pos(row_sample, start_line):
+    l, r = 0, len(row_sample) - 1
     while True:
-        mid = int((l+r)/2)
+        mid = int((l + r) / 2)
         if r - l == 1:
             return r
         if row_sample[mid] < start_line:
@@ -100,16 +103,17 @@ def find_start_pos(row_sample,start_line):
         if row_sample[mid] == start_line:
             return mid
 
+
 def get_cls_label(label):
     h = label.shape[0]
     w = label.shape[1]
 
-    scale_f = lambda x : int((x * 1.0/288) * h)
-    sample_tmp = list(map(scale_f,config.row_anchor))
+    def scale_f(x): return int((x * 1.0 / 288) * h)
+    sample_tmp = list(map(scale_f, config.row_anchor))
 
-    all_idx = np.zeros((config.num_lanes,len(sample_tmp),2))
-    for i,r in enumerate(sample_tmp):
-        label_r = np.asarray(label)[int(round(r))]
+    all_idx = np.zeros((config.num_lanes, len(sample_tmp), 2))
+    for i, r in enumerate(sample_tmp):
+        label_r = label[int(round(r))]
         for lane_idx in range(1, config.num_lanes + 1):
             pos = np.where(label_r == lane_idx)[0]
             if len(pos) == 0:
@@ -120,30 +124,29 @@ def get_cls_label(label):
             all_idx[lane_idx - 1, i, 0] = r
             all_idx[lane_idx - 1, i, 1] = pos
 
-
     all_idx_cp = all_idx.copy()
     for i in range(config.num_lanes):
-        if np.all(all_idx_cp[i,:,1] == -1):
+        if np.all(all_idx_cp[i, :, 1] == -1):
             continue
         # if there is no lane
 
-        valid = all_idx_cp[i,:,1] != -1
-        valid_idx = all_idx_cp[i,valid,:]
-        if valid_idx[-1,0] == all_idx_cp[0,-1,0]:
+        valid = all_idx_cp[i, :, 1] != -1
+        valid_idx = all_idx_cp[i, valid, :]
+        if valid_idx[-1, 0] == all_idx_cp[0, -1, 0]:
             continue
         if len(valid_idx) < 6:
             continue
 
-        valid_idx_half = valid_idx[len(valid_idx) // 2:,:]
-        p = np.polyfit(valid_idx_half[:,0], valid_idx_half[:,1],deg = 1)
-        start_line = valid_idx_half[-1,0]
-        pos = find_start_pos(all_idx_cp[i,:,0],start_line) + 1
-        
-        fitted = np.polyval(p,all_idx_cp[i,pos:,0])
-        fitted = np.array([-1  if y < 0 or y > w-1 else y for y in fitted])
+        valid_idx_half = valid_idx[len(valid_idx) // 2:, :]
+        p = np.polyfit(valid_idx_half[:, 0], valid_idx_half[:, 1], deg=1)
+        start_line = valid_idx_half[-1, 0]
+        pos = find_start_pos(all_idx_cp[i, :, 0], start_line) + 1
 
-        assert np.all(all_idx_cp[i,pos:,1] == -1)
-        all_idx_cp[i,pos:,1] = fitted
+        fitted = np.polyval(p, all_idx_cp[i, pos:, 0])
+        fitted = np.array([-1 if y < 0 or y > w - 1 else y for y in fitted])
+
+        assert np.all(all_idx_cp[i, pos:, 1] == -1)
+        all_idx_cp[i, pos:, 1] = fitted
 
     num_lane, n, n2 = all_idx_cp.shape
     col_sample = np.linspace(0, w - 1, config.griding_num)
@@ -153,13 +156,21 @@ def get_cls_label(label):
         pti = all_idx_cp[i, :, 1]
         cls_label[:, i] = np.asarray(
             [int(pt // (col_sample[1] - col_sample[0])) if pt != -1 else config.griding_num for pt in pti])
-    cls_label=cls_label.astype(int)
+    cls_label = cls_label.astype(np.int32)
     return label, cls_label
+
+
+def free_scale_mask(label, size=(36, 100)):
+    label = Image.fromarray(label)
+    seg_label = label.resize((size[1], size[0]), Image.NEAREST)
+    seg_label = np.array(seg_label).astype(np.int32)
+    return seg_label
+
 
 def create_lane_dataset(data_root_path, data_list_path, batch_size,
                         is_train=True, num_workers=8, rank_size=1, rank_id=0):
 
-    ds.config.set_seed(1)
+    ds.config.set_seed(1234)
     ds.config.set_num_parallel_workers(num_workers)
 
     lane_dataset = LaneDataset(
@@ -178,12 +189,28 @@ def create_lane_dataset(data_root_path, data_list_path, batch_size,
                           input_columns=['image', 'label'],
                           output_columns=['image', 'label'],
                           num_parallel_workers=num_workers)
-    
+
     dataset = dataset.map(operations=[get_cls_label],
                           input_columns=['label'],
-                          output_columns=['label', 'cls_label'],column_order=['image','label', 'cls_label'],
+                          output_columns=['label', 'cls_label'], column_order=['image', 'cls_label', 'label'],
                           num_parallel_workers=num_workers)
-    
+
+    if is_train:
+        dataset = dataset.map(operations=[free_scale_mask],
+                              input_columns=['label'],
+                              output_columns=['seg_label'],
+                              num_parallel_workers=num_workers)
+
+    transform_img = [
+        vision.Resize((288, 800)),
+        vision.Normalize(mean=[0.485 * 255, 0.456 * 255, 0.406 * 255],
+                         std=[0.229 * 255, 0.224 * 255, 0.225 * 255]),
+        vision.HWC2CHW()
+    ]
+    dataset = dataset.map(operations=transform_img,
+                          input_columns=['image'],
+                          output_columns=['image'],
+                          num_parallel_workers=num_workers)
 
     dataset = dataset.shuffle(buffer_size=1000)
     dataset = dataset.batch(batch_size=batch_size, drop_remainder=True)
