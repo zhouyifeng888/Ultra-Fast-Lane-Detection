@@ -1,10 +1,13 @@
 
 import os
+import random
 
+import numpy as np
 from PIL import Image
 
-from mindspore import dataset as ds
+import mindspore.dataset as ds
 
+from src.config import config
 
 class LaneDataset:
     def __init__(self, root_path, list_path):
@@ -34,25 +37,161 @@ class LaneDataset:
         return len(self.list)
 
 
+def random_process(img, label, angle=6, max_offset1=100, max_offset2=200):
+    angle = random.randint(0, angle * 2) - angle
+    offset1 = np.random.randint(-max_offset1, max_offset1)
+    offset2 = np.random.randint(-max_offset2, max_offset2)
+
+    # image rotate
+    img = Image.fromarray(img)
+    img = img.rotate(angle, resample=Image.BILINEAR)
+    # iamge UDoffsetLABEL
+    w, h = img.size
+    img = np.array(img)
+    if offset1 > 0:
+        img[offset1:, :, :] = img[0:h - offset1, :, :]
+        img[:offset1, :, :] = 0
+    if offset1 < 0:
+        real_offset = -offset1
+        img[0:h - real_offset, :, :] = img[real_offset:, :, :]
+        img[h - real_offset:, :, :] = 0
+    # image RandomLROffsetLABEL
+    if offset2 > 0:
+        img[:, offset2:, :] = img[:, 0:w - offset2, :]
+        img[:, :offset2, :] = 0
+    if offset2 < 0:
+        real_offset = -offset2
+        img[:, 0:w - real_offset, :] = img[:, real_offset:, :]
+        img[:, w - real_offset:, :] = 0
+
+    # label rotate
+    label = Image.fromarray(label)
+    label = label.rotate(angle, resample=Image.NEAREST)
+    # label UDoffsetLABEL
+    label = np.array(label)
+    if offset1 > 0:
+        label[offset1:, :] = label[0:h - offset1, :]
+        label[:offset1, :] = 0
+    if offset1 < 0:
+        offset1 = -offset1
+        label[0:h - offset1, :] = label[offset1:, :]
+        label[h - offset1:, :] = 0
+    # label RandomLROffsetLABEL
+    if offset2 > 0:
+        label[:, offset2:] = label[:, 0:w - offset2]
+        label[:, :offset2] = 0
+    if offset2 < 0:
+        offset2 = -offset2
+        label[:, 0:w - offset2] = label[:, offset2:]
+        label[:, w - offset2:] = 0
+
+    return img, label
+
+def find_start_pos(row_sample,start_line):
+    l,r = 0,len(row_sample)-1
+    while True:
+        mid = int((l+r)/2)
+        if r - l == 1:
+            return r
+        if row_sample[mid] < start_line:
+            l = mid
+        if row_sample[mid] > start_line:
+            r = mid
+        if row_sample[mid] == start_line:
+            return mid
+
+def get_cls_label(label):
+    h = label.shape[0]
+    w = label.shape[1]
+
+    scale_f = lambda x : int((x * 1.0/288) * h)
+    sample_tmp = list(map(scale_f,config.row_anchor))
+
+    all_idx = np.zeros((config.num_lanes,len(sample_tmp),2))
+    for i,r in enumerate(sample_tmp):
+        label_r = np.asarray(label)[int(round(r))]
+        for lane_idx in range(1, config.num_lanes + 1):
+            pos = np.where(label_r == lane_idx)[0]
+            if len(pos) == 0:
+                all_idx[lane_idx - 1, i, 0] = r
+                all_idx[lane_idx - 1, i, 1] = -1
+                continue
+            pos = np.mean(pos)
+            all_idx[lane_idx - 1, i, 0] = r
+            all_idx[lane_idx - 1, i, 1] = pos
+
+
+    all_idx_cp = all_idx.copy()
+    for i in range(config.num_lanes):
+        if np.all(all_idx_cp[i,:,1] == -1):
+            continue
+        # if there is no lane
+
+        valid = all_idx_cp[i,:,1] != -1
+        valid_idx = all_idx_cp[i,valid,:]
+        if valid_idx[-1,0] == all_idx_cp[0,-1,0]:
+            continue
+        if len(valid_idx) < 6:
+            continue
+
+        valid_idx_half = valid_idx[len(valid_idx) // 2:,:]
+        p = np.polyfit(valid_idx_half[:,0], valid_idx_half[:,1],deg = 1)
+        start_line = valid_idx_half[-1,0]
+        pos = find_start_pos(all_idx_cp[i,:,0],start_line) + 1
+        
+        fitted = np.polyval(p,all_idx_cp[i,pos:,0])
+        fitted = np.array([-1  if y < 0 or y > w-1 else y for y in fitted])
+
+        assert np.all(all_idx_cp[i,pos:,1] == -1)
+        all_idx_cp[i,pos:,1] = fitted
+
+    num_lane, n, n2 = all_idx_cp.shape
+    col_sample = np.linspace(0, w - 1, config.griding_num)
+
+    cls_label = np.zeros((n, num_lane))
+    for i in range(num_lane):
+        pti = all_idx_cp[i, :, 1]
+        cls_label[:, i] = np.asarray(
+            [int(pt // (col_sample[1] - col_sample[0])) if pt != -1 else config.griding_num for pt in pti])
+    cls_label=cls_label.astype(int)
+    return label, cls_label
+
 def create_lane_dataset(data_root_path, data_list_path, batch_size,
-                              is_train=True,num_workers=8, rank_size=1, rank_id=0):
+                        is_train=True, num_workers=8, rank_size=1, rank_id=0):
+
+    ds.config.set_seed(1)
+    ds.config.set_num_parallel_workers(num_workers)
 
     lane_dataset = LaneDataset(
         data_root_path, os.path.join(data_root_path, data_list_path))
-    
+
     if is_train:
-        shuffle=True
+        shuffle = True
     else:
-        shuffle=False
+        shuffle = False
+
+    dataset = ds.GeneratorDataset(source=lane_dataset, column_names=['image', 'label'],
+                                  #                                  num_parallel_workers=num_workers,
+                                  shuffle=shuffle, num_shards=rank_size, shard_id=rank_id)
+
+    dataset = dataset.map(operations=[random_process],
+                          input_columns=['image', 'label'],
+                          output_columns=['image', 'label'],
+                          num_parallel_workers=num_workers)
     
-    dataset = ds.GeneratorDataset(source=lane_dataset, column_names=["image", 'label'],
-                                  num_parallel_workers=num_workers, shuffle=shuffle,
-                                  num_shards=rank_size, shard_id=rank_id)
+    dataset = dataset.map(operations=[get_cls_label],
+                          input_columns=['label'],
+                          output_columns=['label', 'cls_label'],column_order=['image','label', 'cls_label'],
+                          num_parallel_workers=num_workers)
+    
+
     dataset = dataset.shuffle(buffer_size=1000)
     dataset = dataset.batch(batch_size=batch_size, drop_remainder=True)
-    
+
     return dataset
 
+
 if __name__ == "__main__":
-    dataset = create_lane_dataset('../../../dataset/Tusimple/train_set/','train_gt.txt', 16, num_workers=1)
+    dataset = create_lane_dataset(
+        '../../../dataset/Tusimple/train_set/', 'train_gt.txt', 16, num_workers=8)
     data = next(dataset.create_dict_iterator())
