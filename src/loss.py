@@ -1,21 +1,23 @@
 
+import mindspore.nn as nn
+import mindspore.ops as P
 
-
-class SoftmaxFocalLoss(_Loss):
-    def __init__(self, gamma, ignore_lb=255, *args, **kwargs):
+class SoftmaxFocalLoss(nn.Cell):
+    def __init__(self, gamma, ignore_lb=255, num_lanes=4):
         super(SoftmaxFocalLoss, self).__init__()
         self.gamma = gamma
-        self.nll = nn.NLLLoss(ignore_index=ignore_lb)
+        self.softmax=P.Softmax(axis=1)
+        self.nll = P.NLLLoss(ignore_index=ignore_lb)
 
     def construct(self, logits, labels):
-        scores = F.softmax(logits, dim=1)
+        scores = self.softmax(logits)
         factor = torch.pow(1.-scores, self.gamma)
         log_score = F.log_softmax(logits, dim=1)
         log_score = factor * log_score
         loss = self.nll(log_score, labels)
         return loss
 
-class ParsingRelationLoss(_Loss):
+class ParsingRelationLoss(nn.Cell):
     def __init__(self):
         super(ParsingRelationLoss, self).__init__()
     def construct(self,logits):
@@ -29,7 +31,7 @@ class ParsingRelationLoss(_Loss):
 
 
 
-class ParsingRelationDis(_Loss):
+class ParsingRelationDis(nn.Cell):
     def __init__(self):
         super(ParsingRelationDis, self).__init__()
         self.l1 = torch.nn.L1Loss()
