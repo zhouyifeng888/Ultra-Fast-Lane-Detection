@@ -43,23 +43,28 @@ class ParsingRelationLoss(nn.Cell):
 
 
 class ParsingRelationDis(nn.Cell):
-    def __init__(self):
+    def __init__(self, griding_num=100, anchor_nums=56, num_lanes=4):
         super(ParsingRelationDis, self).__init__()
-        self.l1 = torch.nn.L1Loss()
+        self.dim = griding_num
+        self.num_rows = anchor_nums
+        self.num_cols = num_lanes
+
+        self.softmax = P.Softmax(axis=1)
+        self.embedding = Tensor(
+            np.arange(griding_num).astype(np.float32)).view((1, -1, 1, 1))
+        self.reduce_sum = P.ReduceSum(keep_dims=False)
+
+        self.l1_loss = nn.L1Loss(reduction='mean')
 
     def construct(self, x):
-        n, dim, num_rows, num_cols = x.shape
-        x = torch.nn.functional.softmax(x[:, :dim - 1, :, :], dim=1)
-        embedding = torch.Tensor(
-            np.arange(dim - 1)).float().to(x.device).view(1, -1, 1, 1)
-        pos = torch.sum(x * embedding, dim=1)
-
+        x = self.softmax(x[:, :self.dim, :, :])
+        pos = self.reduce_sum(x * self.embedding, 1)
         diff_list1 = []
-        for i in range(0, num_rows // 2):
+        for i in range(0, self.num_rows // 2):
             diff_list1.append(pos[:, i, :] - pos[:, i + 1, :])
 
         loss = 0
         for i in range(len(diff_list1) - 1):
-            loss += self.l1(diff_list1[i], diff_list1[i + 1])
-        loss /= len(diff_list1) - 1
+            loss += self.l1_loss(diff_list1[i], diff_list1[i + 1])
+        loss = loss / (len(diff_list1) - 1)
         return loss
