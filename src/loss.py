@@ -6,9 +6,11 @@ import mindspore.nn as nn
 import mindspore.ops as P
 from mindspore import Tensor
 
+from src.config import cfg
+
 
 class SoftmaxFocalLoss(nn.Cell):
-    def __init__(self, gamma, num_lanes=4):
+    def __init__(self, gamma=2, num_lanes=4):
         super(SoftmaxFocalLoss, self).__init__()
         self.gamma = gamma
         self.softmax = P.Softmax(axis=1)
@@ -67,4 +69,36 @@ class ParsingRelationDis(nn.Cell):
         for i in range(len(diff_list1) - 1):
             loss += self.l1_loss(diff_list1[i], diff_list1[i + 1])
         loss = loss / (len(diff_list1) - 1)
+        return loss
+
+
+class TrainLoss(nn.Cell):
+    def __init__(self, gamma=2):
+        super(TrainLoss, self).__init__()
+        self.w1 = 1.0
+        self.loss1 = SoftmaxFocalLoss(gamma=gamma, num_lanes=cfg.num_lanes)
+        self.w2 = cfg.sim_loss_w
+        self.loss2 = ParsingRelationLoss()
+        self.w3 = 1.0
+        self.loss3 = nn.SoftmaxCrossEntropyWithLogits(
+            sparse=False, reduction='mean')
+        self.w4 = cfg.shp_loss_w
+        self.loss4 = ParsingRelationDis(
+            griding_num=cfg.griding_num, anchor_nums=len(cfg.row_anchor), num_lanes=cfg.num_lanes)
+
+    def construct(self, cls_out, seg_out, cls_label, seg_label):
+        total_loss = self.w1 * self.loss1(cls_out, cls_label) + self.w2 * self.loss2(
+            cls_out) + self.w3 * self.loss3(seg_out, seg_label) + self.w4 * self.loss4(cls_out)
+        return total_loss
+
+
+class NetWithLossCell(nn.Cell):
+    def __init__(self, network, loss_fn):
+        super(NetWithLossCell, self).__init__()
+        self.network = network
+        self.loss_fn = loss_fn
+
+    def construct(self, x, cls_label, seg_label):
+        cls_out, seg_out = self.network(x)
+        loss = self.loss_fn(cls_out, seg_out, cls_label, seg_label)
         return loss
