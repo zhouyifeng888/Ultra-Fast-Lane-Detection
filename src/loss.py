@@ -112,7 +112,11 @@ class NetWithLossCell(nn.Cell):
         self.network = network
         self.loss_fn = loss_fn
 
-    def construct(self, x, cls_label, seg_label):
-        cls_out, seg_out = self.network(x)
-        loss = self.loss_fn(cls_out, seg_out, cls_label, seg_label)
-        return loss
+    def construct(self, x, cls_label=None, seg_label=None):
+        if self.training:
+            cls_out, seg_out = self.network(x)
+            loss = self.loss_fn(cls_out, seg_out, cls_label, seg_label)
+            return loss
+        else:
+            cls_out = self.network(x)
+            return cls_out

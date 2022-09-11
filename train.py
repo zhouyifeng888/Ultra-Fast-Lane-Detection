@@ -32,6 +32,10 @@ from src.config import config as cfg
 from src.loss import TrainLoss, NetWithLossCell
 from src.lr_scheduler import warmup_cosine_annealing_lr_V2
 
+ms.common.set_seed(12345)
+random.seed(12345)
+np.random.seed(12345)
+
 
 class Val_Callback(Callback):
     """
@@ -39,9 +43,9 @@ class Val_Callback(Callback):
 
     """
 
-    def __init__(self, network, val_dataset, device_id, output_path='./output'):
+    def __init__(self, model, val_dataset, device_id, output_path='./output'):
         super(Val_Callback, self).__init__()
-        self.network = network
+        self.model = model
         self.val_dataset = val_dataset
         self.device_id = device_id
         if output_path.startswith('s3://') or output_path.startswith('obs://'):
@@ -66,8 +70,7 @@ class Val_Callback(Callback):
             imgs = data['image']
             gt_lanes = data['gt_lanes'].asnumpy()
             y_samples = data['y_samples'].asnumpy()
-            self.network.set_train(False)
-            results = self.network(imgs).asnumpy()
+            results = self.model.predict(imgs).asnumpy()
             for i in range(results.shape[0]):
                 pred_one_img_lanes = self.accEval.generate_tusimple_lines(
                     results[i], imgs[0, 0].shape, cfg.griding_num)
@@ -231,7 +234,7 @@ def main():
     loss_cb = LossMonitor(per_print_times=1)
     time_cb = TimeMonitor(data_size=batches_per_epoch)
     val_cb = Val_Callback(
-        net, val_dataset, device_id, cfg.train_url)
+        model, val_dataset, device_id, cfg.train_url)
 
     if device_id == 0:
         callbacks = [time_cb, loss_cb, val_cb]
