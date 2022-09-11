@@ -18,7 +18,7 @@ from mindspore import context
 from mindspore.train.callback._time_monitor import TimeMonitor
 from mindspore.train.callback._loss_monitor import LossMonitor
 from mindspore.train import Model
-from mindspore.train.serialization import load_checkpoint, load_param_into_net
+from mindspore.train.serialization import load_checkpoint, load_param_into_net, save_checkpoint
 from mindspore.communication import init
 from mindspore.train.model import ParallelMode
 from mindspore.train.loss_scale_manager import FixedLossScaleManager
@@ -174,6 +174,8 @@ def main():
     cfg.dataset_sink_mode = True if cfg.dataset_sink_mode == 'True' else False
     model.train(cfg.epochs - cfg.start_epochs, train_dataset,
                 callbacks=callbacks, dataset_sink_mode=cfg.dataset_sink_mode)
+
+    save_checkpoint(net, f'model_{device_id}.ckpt')
 
     # profiler.analyse()
 

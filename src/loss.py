@@ -34,7 +34,8 @@ class ParsingRelationLoss(nn.Cell):
         super(ParsingRelationLoss, self).__init__()
         self.concat = P.Concat(axis=0)
         self.zeros_like = P.ZerosLike()
-        self.smooth_l1_loss = nn.SmoothL1Loss(beta=1.0, reduction='mean')
+        self.smooth_l1_loss = nn.SmoothL1Loss(beta=1.0)
+        self.mean = P.ReduceMean(keep_dims=False)
 
     def construct(self, logits):
         n, c, h, w = logits.shape
@@ -42,7 +43,8 @@ class ParsingRelationLoss(nn.Cell):
         for i in range(0, h - 1):
             loss_all.append(logits[:, :, i, :] - logits[:, :, i + 1, :])
         loss = self.concat(loss_all)
-        return self.smooth_l1_loss(loss, self.zeros_like(loss))
+        smooth_loss = self.smooth_l1_loss(loss, self.zeros_like(loss))
+        return self.mean(smooth_loss)
 
 
 class ParsingRelationDis(nn.Cell):
