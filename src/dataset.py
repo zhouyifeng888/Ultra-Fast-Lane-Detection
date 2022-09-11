@@ -2,6 +2,7 @@
 import os
 import random
 
+import json
 import numpy as np
 from PIL import Image
 
@@ -11,7 +12,7 @@ import mindspore.dataset.vision.c_transforms as vision
 from src.config import config
 
 
-class LaneDataset:
+class LaneTrainDataset:
     def __init__(self, root_path, list_path):
 
         self.root_path = root_path
@@ -34,6 +35,30 @@ class LaneDataset:
         img = Image.open(img_path)
 
         return img, label
+
+    def __len__(self):
+        return len(self.list)
+
+
+class LaneTestDataset:
+    def __init__(self, root_path, test_label_file):
+
+        self.root_path = root_path
+
+        with open(test_label_file, 'r') as f:
+            self.list = f.readlines()
+
+    def __getitem__(self, index):
+        json_line = self.list[index]
+        json_data = json.loads(json_line)
+        raw_file = json_data['raw_file']
+        gt_lanes = json_data['lanes']
+        y_samples = json_data['h_samples']
+
+        img_path = os.path.join(self.root_path, raw_file)
+        img = Image.open(img_path)
+
+        return img, gt_lanes, y_samples
 
     def __len__(self):
         return len(self.list)
@@ -167,23 +192,18 @@ def free_scale_mask(label, size=(36, 100)):
     return seg_label
 
 
-def create_lane_dataset(data_root_path, data_list_path, batch_size,
-                        is_train=True, num_workers=8, rank_size=1, rank_id=0):
+def create_lane_train_dataset(data_root_path, data_list_path, batch_size,
+                              num_workers=8, rank_size=1, rank_id=0):
 
     ds.config.set_seed(1234)
     ds.config.set_num_parallel_workers(num_workers)
 
-    lane_dataset = LaneDataset(
+    lane_dataset = LaneTrainDataset(
         data_root_path, os.path.join(data_root_path, data_list_path))
-
-    if is_train:
-        shuffle = True
-    else:
-        shuffle = False
 
     dataset = ds.GeneratorDataset(source=lane_dataset, column_names=['image', 'label'],
                                   #                                  num_parallel_workers=num_workers,
-                                  shuffle=shuffle, num_shards=rank_size, shard_id=rank_id)
+                                  shuffle=True, num_shards=rank_size, shard_id=rank_id)
 
     dataset = dataset.map(operations=[random_process],
                           input_columns=['image', 'label'],
@@ -217,7 +237,25 @@ def create_lane_dataset(data_root_path, data_list_path, batch_size,
     return dataset
 
 
+def create_lane_test_dataset(data_root_path, test_label_file, batch_size,
+                             num_workers=8, rank_size=1, rank_id=0):
+
+    ds.config.set_seed(1234)
+    ds.config.set_num_parallel_workers(num_workers)
+
+    lane_dataset = LaneTestDataset(
+        data_root_path, os.path.join(data_root_path, test_label_file))
+
+    dataset = ds.GeneratorDataset(source=lane_dataset, column_names=['image', 'gt_lanes', 'y_samples'],
+                                  shuffle=True, num_shards=rank_size, shard_id=rank_id)
+
+    dataset = dataset.shuffle(buffer_size=1000)
+    dataset = dataset.batch(batch_size=batch_size, drop_remainder=True)
+
+    return dataset
+
+
 if __name__ == "__main__":
-    dataset = create_lane_dataset(
+    dataset = create_lane_train_dataset(
         '../../../dataset/Tusimple/train_set/', 'train_gt.txt', 16, num_workers=8)
     data = next(dataset.create_dict_iterator())
