@@ -25,7 +25,10 @@ class SoftmaxFocalLoss(nn.Cell):
         factor = self.pow(1.0 - scores, self.gamma)
         log_score = self.log_softmax(logits)
         log_score = factor * log_score
+        print(f'log_score.shape :{log_score.shape}============')
+        print(f'labels.shape :{labels.shape}==============')
         loss = self.nll(log_score, labels, self.weight)
+        print(f'loss.shape :{loss.shape}======================')
         return loss
 
 
