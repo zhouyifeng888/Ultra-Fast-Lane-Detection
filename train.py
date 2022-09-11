@@ -26,7 +26,7 @@ from mindspore.train.callback._callback import Callback
 
 from src.resnet import get_resnet
 from src.network import ParsingNet
-from src.utils import print_trainable_params_count, generate_tusimple_lines, bench
+from src.utils import print_trainable_params_count, TusimpleAccEval
 from src.dataset import create_lane_train_dataset, create_lane_test_dataset
 from src.config import config as cfg
 from src.loss import TrainLoss, NetWithLossCell
@@ -52,6 +52,8 @@ class Val_Callback(Callback):
             self.obs_output_path = None
         self.best_acc = 0
 
+        self.accEval = TusimpleAccEval()
+
     def epoch_end(self, run_context):
         """
         Call at each epoch end.
@@ -66,10 +68,10 @@ class Val_Callback(Callback):
             y_samples = data['image'].asnumpy()
             results = self.model.predict(imgs).asnumpy()
             for i in range(results.shape[0]):
-                pred_one_img_lanes = generate_tusimple_lines(
+                pred_one_img_lanes = self.accEval.generate_tusimple_lines(
                     results[i], imgs[0, 0].shape, cfg.griding_num)
-                one_img_acc = bench(pred_one_img_lanes,
-                                    gt_lanes[i], y_samples[i])
+                one_img_acc = self.accEval.bench(pred_one_img_lanes,
+                                                 gt_lanes[i], y_samples[i])
                 acc += one_img_acc
                 total_count += 1
         acc = acc / total_count
@@ -170,10 +172,10 @@ def main():
                 with open(copy_result_file) as f:
                     local_data_path = f.readline()
 
-    train_dataset = create_lane_train_dataset(local_data_path, 'train_set/train_gt.txt', cfg.batch_size,
+    train_dataset = create_lane_train_dataset(os.path.join(local_data_path, 'train_set'), 'train_gt.txt', cfg.batch_size,
                                               rank_size=device_num, rank_id=device_id)
     val_dataset = create_lane_test_dataset(
-        local_data_path, 'test_set/test_label.json', 1)
+        os.path.join(local_data_path, 'test_set'), 'test_label.json', 1)
 
     batches_per_epoch = train_dataset.get_dataset_size()
     print(f'batches_per_epoch:{batches_per_epoch}')
