@@ -39,9 +39,9 @@ class Val_Callback(Callback):
 
     """
 
-    def __init__(self, model, val_dataset, device_id, output_path='./output'):
+    def __init__(self, network, val_dataset, device_id, output_path='./output'):
         super(Val_Callback, self).__init__()
-        self.model = model
+        self.network = network
         self.val_dataset = val_dataset
         self.device_id = device_id
         if output_path.startswith('s3://') or output_path.startswith('obs://'):
@@ -64,9 +64,10 @@ class Val_Callback(Callback):
         total_count = 0
         for data in self.val_dataset.create_dict_iterator():
             imgs = data['image']
-            gt_lanes = data['image'].asnumpy()
-            y_samples = data['image'].asnumpy()
-            results = self.model.predict(imgs).asnumpy()
+            gt_lanes = data['gt_lanes'].asnumpy()
+            y_samples = data['y_samples'].asnumpy()
+            self.network.set_train(False)
+            results = self.network(imgs).asnumpy()
             for i in range(results.shape[0]):
                 pred_one_img_lanes = self.accEval.generate_tusimple_lines(
                     results[i], imgs[0, 0].shape, cfg.griding_num)
@@ -230,7 +231,7 @@ def main():
     loss_cb = LossMonitor(per_print_times=1)
     time_cb = TimeMonitor(data_size=batches_per_epoch)
     val_cb = Val_Callback(
-        model, val_dataset, device_id, cfg.train_url)
+        net, val_dataset, device_id, cfg.train_url)
 
     if device_id == 0:
         callbacks = [time_cb, loss_cb, val_cb]
@@ -240,8 +241,6 @@ def main():
     cfg.dataset_sink_mode = True if cfg.dataset_sink_mode == 'True' else False
     model.train(cfg.epochs - cfg.start_epochs, train_dataset,
                 callbacks=callbacks, dataset_sink_mode=cfg.dataset_sink_mode)
-
-    save_checkpoint(net, f'model_{device_id}.ckpt')
 
     # profiler.analyse()
 
