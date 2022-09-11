@@ -29,15 +29,17 @@ class SoftmaxFocalLoss(nn.Cell):
 class ParsingRelationLoss(nn.Cell):
     def __init__(self):
         super(ParsingRelationLoss, self).__init__()
+        self.concat = P.Concat(axis=0)
+        self.zeros_like = P.ZerosLike()
+        self.smooth_l1_loss = nn.SmoothL1Loss(beta=1.0, reduction='mean')
 
     def construct(self, logits):
         n, c, h, w = logits.shape
         loss_all = []
         for i in range(0, h - 1):
             loss_all.append(logits[:, :, i, :] - logits[:, :, i + 1, :])
-        # loss0 : n,c,w
-        loss = torch.cat(loss_all)
-        return torch.nn.functional.smooth_l1_loss(loss, torch.zeros_like(loss))
+        loss = self.concat(loss_all)
+        return self.smooth_l1_loss(loss, self.zeros_like(loss))
 
 
 class ParsingRelationDis(nn.Cell):
