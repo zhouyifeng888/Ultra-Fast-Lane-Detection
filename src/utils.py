@@ -44,9 +44,25 @@ class TusimpleAccEval(object):
     pixel_thresh = 20
 
     @staticmethod
+    def line_accuracy(pred, gt, thresh):
+        pred = np.array([p if p >= 0 else -100 for p in pred])
+        gt = np.array([g if g >= 0 else -100 for g in gt])
+        return np.sum(np.where(np.abs(pred - gt) < thresh, 1., 0.)) / len(gt)
+
+    @staticmethod
+    def get_angle(xs, y_samples):
+        xs, ys = xs[xs >= 0], y_samples[xs >= 0]
+        if len(xs) > 1:
+            TusimpleAccEval.lr.fit(ys[:, None], xs)
+            k = TusimpleAccEval.lr.coef_[0]
+            theta = np.arctan(k)
+        else:
+            theta = 0
+        return theta
+    
+    @staticmethod
     def generate_tusimple_lines(out, shape, griding_num, localization_type='rel'):
 
-        out = out.asnumpy()
         out_loc = np.argmax(out, axis=0)
 
         if localization_type == 'rel':
@@ -65,26 +81,9 @@ class TusimpleAccEval(object):
                     if loc != griding_num else -2 for loc in out_i]
             lanes.append(lane)
         return lanes
-
+    
     @staticmethod
-    def line_accuracy(pred, gt, thresh):
-        pred = np.array([p if p >= 0 else -100 for p in pred])
-        gt = np.array([g if g >= 0 else -100 for g in gt])
-        return np.sum(np.where(np.abs(pred - gt) < thresh, 1., 0.)) / len(gt)
-
-    @staticmethod
-    def get_angle(xs, y_samples):
-        xs, ys = xs[xs >= 0], y_samples[xs >= 0]
-        if len(xs) > 1:
-            TusimpleAccEval.lr.fit(ys[:, None], xs)
-            k = TusimpleAccEval.lr.coef_[0]
-            theta = np.arctan(k)
-        else:
-            theta = 0
-        return theta
-
-    @staticmethod
-    def bench(pred, gt, y_samples, running_time):
+    def bench(pred, gt, y_samples):
         if any(len(p) != len(y_samples) for p in pred):
             raise Exception('Format of lanes error.')
         angles = [TusimpleAccEval.get_angle(

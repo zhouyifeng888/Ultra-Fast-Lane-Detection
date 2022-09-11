@@ -240,14 +240,24 @@ def create_lane_train_dataset(data_root_path, data_list_path, batch_size,
 def create_lane_test_dataset(data_root_path, test_label_file, batch_size,
                              num_workers=8, rank_size=1, rank_id=0):
 
-    ds.config.set_seed(1234)
     ds.config.set_num_parallel_workers(num_workers)
 
     lane_dataset = LaneTestDataset(
         data_root_path, os.path.join(data_root_path, test_label_file))
 
     dataset = ds.GeneratorDataset(source=lane_dataset, column_names=['image', 'gt_lanes', 'y_samples'],
-                                  shuffle=True, num_shards=rank_size, shard_id=rank_id)
+                                  shuffle=False, num_shards=rank_size, shard_id=rank_id)
+    
+    transform_img = [
+        vision.Resize((288, 800)),
+        vision.Normalize(mean=[0.485 * 255, 0.456 * 255, 0.406 * 255],
+                         std=[0.229 * 255, 0.224 * 255, 0.225 * 255]),
+        vision.HWC2CHW()
+    ]
+    dataset = dataset.map(operations=transform_img,
+                          input_columns=['image'],
+                          output_columns=['image'],
+                          num_parallel_workers=num_workers)
 
     dataset = dataset.shuffle(buffer_size=1000)
     dataset = dataset.batch(batch_size=batch_size, drop_remainder=True)
