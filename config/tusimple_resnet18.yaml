@@ -1,47 +1,43 @@
 # DATA
-dataset : 'Tusimple'
-data_root : ''
 row_anchor : [ 64,  68,  72,  76,  80,  84,  88,  92,  96, 100, 104, 108, 112,
             116, 120, 124, 128, 132, 136, 140, 144, 148, 152, 156, 160, 164,
             168, 172, 176, 180, 184, 188, 192, 196, 200, 204, 208, 212, 216,
             220, 224, 228, 232, 236, 240, 244, 248, 252, 256, 260, 264, 268,
             272, 276, 280, 284]
+num_lanes : 4
+
+local_data_root : '/cache/'
+data_url : '../../dataset/Tusimple/train_set/'
+train_url : '../output'
+
 
 # TRAIN
-epoch : 100
+device_target : 'Ascend'
+amp_level : 'O3'
+epochs : 100
 batch_size : 32
 optimizer : 'Adam'    #['SGD','Adam']
-# learning_rate : 0.1
-learning_rate : 4e-4
+# lr : 0.1
+lr : 4e-4
 weight_decay : 1e-4
 momentum : 0.9
+resume: ''
+start_epochs : 1
 
-scheduler : 'cos'     #['multi', 'cos']
-# steps : [50,75]
-gamma  : 0.1
-warmup : 'linear'
-warmup_iters : 100
+use_cosine_decay_lr : 'True'
+warmup_init_lr : 1e-6
+warmup : 5
+cooldown : 0
+lr_min : 0
+
+dataset_sink_mode : 'True'
 
 # NETWORK
-use_aux : True
 backbone : '18'
 griding_num : 100
+backbone_pretrain : '../resnet18_ascend_v150_imagenet2012_official_cv_top1acc70.47_top5acc89.61.ckpt'
 
 # LOSS
 sim_loss_w : 1.0
 shp_loss_w : 0.0
 
-# EXP
-note : ''
-
-log_path : ''
-
-# FINETUNE or RESUME MODEL PATH
-finetune : ''
-resume : ''
-
-# TEST
-test_model : ''
-test_work_dir : ''
-
-num_lanes : 4

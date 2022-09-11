@@ -2,11 +2,12 @@
 
 import numpy as np
 
+import mindspore as ms
 import mindspore.nn as nn
 import mindspore.ops as P
 from mindspore import Tensor
 
-from src.config import cfg
+from src.config import config as cfg
 
 
 class SoftmaxFocalLoss(nn.Cell):
@@ -45,7 +46,7 @@ class ParsingRelationLoss(nn.Cell):
 
 
 class ParsingRelationDis(nn.Cell):
-    def __init__(self, griding_num=100, anchor_nums=56, num_lanes=4):
+    def __init__(self, griding_num=100, anchor_nums=56, num_lanes=4, data_type=ms.float16):
         super(ParsingRelationDis, self).__init__()
         self.dim = griding_num
         self.num_rows = anchor_nums
@@ -53,7 +54,7 @@ class ParsingRelationDis(nn.Cell):
 
         self.softmax = P.Softmax(axis=1)
         self.embedding = Tensor(
-            np.arange(griding_num).astype(np.float32)).view((1, -1, 1, 1))
+            np.arange(griding_num)).astype(data_type).view((1, -1, 1, 1))
         self.reduce_sum = P.ReduceSum(keep_dims=False)
 
         self.l1_loss = nn.L1Loss(reduction='mean')
@@ -73,7 +74,7 @@ class ParsingRelationDis(nn.Cell):
 
 
 class TrainLoss(nn.Cell):
-    def __init__(self, gamma=2):
+    def __init__(self, gamma=2, data_type=ms.float16):
         super(TrainLoss, self).__init__()
         self.w1 = 1.0
         self.loss1 = SoftmaxFocalLoss(gamma=gamma, num_lanes=cfg.num_lanes)
@@ -84,7 +85,7 @@ class TrainLoss(nn.Cell):
             sparse=False, reduction='mean')
         self.w4 = cfg.shp_loss_w
         self.loss4 = ParsingRelationDis(
-            griding_num=cfg.griding_num, anchor_nums=len(cfg.row_anchor), num_lanes=cfg.num_lanes)
+            griding_num=cfg.griding_num, anchor_nums=len(cfg.row_anchor), num_lanes=cfg.num_lanes, data_type=data_type)
 
     def construct(self, cls_out, seg_out, cls_label, seg_label):
         total_loss = self.w1 * self.loss1(cls_out, cls_label) + self.w2 * self.loss2(

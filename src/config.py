@@ -1,4 +1,4 @@
-# Copyright 2021 Huawei Technologies Co., Ltd
+# Copyright 2022 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,8 +20,6 @@ import ast
 import argparse
 from pprint import pprint, pformat
 import yaml
-
-_config_path = "./config/resnet50_cifar10_config.yaml"
 
 
 class Config:
