@@ -21,9 +21,9 @@ class LaneTrainDataset:
             self.list = f.readlines()
 
     def __getitem__(self, index):
-        if index==0:
+        if index == 0:
             random.shuffle(self.list)
-        
+
         l = self.list[index]
         l_info = l.split()
         img_name, label_name = l_info[0], l_info[1]
@@ -55,13 +55,13 @@ class LaneTestDataset:
         json_line = self.list[index]
         json_data = json.loads(json_line)
         raw_file = json_data['raw_file']
-        gt_lanes = json_data['lanes']
-        y_samples = json_data['h_samples']
+        if raw_file[0] == '/':
+            raw_file = raw_file[1:]
 
         img_path = os.path.join(self.root_path, raw_file)
         img = Image.open(img_path)
 
-        return img, gt_lanes, y_samples
+        return img, index
 
     def __len__(self):
         return len(self.list)
@@ -248,9 +248,9 @@ def create_lane_test_dataset(data_root_path, test_label_file, batch_size,
     lane_dataset = LaneTestDataset(
         data_root_path, os.path.join(data_root_path, test_label_file))
 
-    dataset = ds.GeneratorDataset(source=lane_dataset, column_names=['image', 'gt_lanes', 'y_samples'],
+    dataset = ds.GeneratorDataset(source=lane_dataset, column_names=['image', 'index'],
                                   shuffle=False, num_shards=rank_size, shard_id=rank_id)
-    
+
     transform_img = [
         vision.Resize((288, 800)),
         vision.Normalize(mean=[0.485 * 255, 0.456 * 255, 0.406 * 255],
