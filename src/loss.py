@@ -11,13 +11,15 @@ from src.config import config as cfg
 
 
 class SoftmaxFocalLoss(nn.Cell):
-    def __init__(self, gamma=2, num_lanes=4):
+    def __init__(self, gamma=2):
         super(SoftmaxFocalLoss, self).__init__()
         self.gamma = gamma
         self.softmax = P.Softmax(axis=1)
         self.pow = P.Pow()
         self.log_softmax = nn.LogSoftmax(axis=1)
-        self.weight = Tensor(np.ones((num_lanes,))).astype(np.float32)
+        self.griding_num = cfg.griding_num
+        self.weight = Tensor(np.ones((self.griding_num+1,))).astype(np.float32)
+        self.reshape = P.Reshape()
         self.nll = P.NLLLoss(reduction="mean")
 
     def construct(self, logits, labels):
@@ -25,6 +27,8 @@ class SoftmaxFocalLoss(nn.Cell):
         factor = self.pow(1.0 - scores, self.gamma)
         log_score = self.log_softmax(logits)
         log_score = factor * log_score
+        log_score = self.reshape(log_score, (-1, self.griding_num + 1))
+        labels = self.reshape(labels, (-1,))
         loss = self.nll(log_score, labels, self.weight)
         return loss
 
@@ -78,15 +82,11 @@ class TrainLoss(nn.Cell):
     def __init__(self, gamma=2, data_type=ms.float16):
         super(TrainLoss, self).__init__()
         self.num_lanes = cfg.num_lanes
-        self.depth = cfg.griding_num + 1
-        self.onehot = P.OneHot(axis=1)
-        self.on_value = Tensor(1.0, ms.float32)
-        self.off_value = Tensor(0.0, ms.float32)
         self.reshape = P.Reshape()
 
         self.w1 = 1.0
-#        self.loss1 = SoftmaxFocalLoss(gamma=gamma, num_lanes=cfg.num_lanes)
-        self.loss1 = nn.FocalLoss(weight=None, gamma=2.0, reduction='mean')
+        self.loss1 = SoftmaxFocalLoss(gamma=gamma)
+#        self.loss1 = nn.FocalLoss(weight=None, gamma=2.0, reduction='mean')
         self.w2 = cfg.sim_loss_w
         self.loss2 = ParsingRelationLoss()
         self.w3 = 1.0
@@ -97,8 +97,6 @@ class TrainLoss(nn.Cell):
             griding_num=cfg.griding_num, anchor_nums=len(cfg.row_anchor), data_type=data_type)
 
     def construct(self, cls_out, seg_out, cls_label, seg_label):
-        cls_label = self.onehot(cls_label, self.depth,
-                                self.on_value, self.off_value)
         total_loss = self.w1 * self.loss1(cls_out, cls_label) + \
             self.w2 * self.loss2(cls_out) + \
             self.w3 * self.loss3(self.reshape(seg_out, (-1, self.num_lanes + 1)), self.reshape(seg_label, (-1,))) + \
