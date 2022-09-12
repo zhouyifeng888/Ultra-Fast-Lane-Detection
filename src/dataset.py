@@ -21,6 +21,9 @@ class LaneTrainDataset:
             self.list = f.readlines()
 
     def __getitem__(self, index):
+        if index==0:
+            random.shuffle(self.list)
+        
         l = self.list[index]
         l_info = l.split()
         img_name, label_name = l_info[0], l_info[1]
@@ -231,7 +234,7 @@ def create_lane_train_dataset(data_root_path, data_list_path, batch_size,
                           output_columns=['image'],
                           num_parallel_workers=num_workers)
 
-    dataset = dataset.shuffle(buffer_size=1000)
+    dataset = dataset.shuffle(buffer_size=10)
     dataset = dataset.batch(batch_size=batch_size, drop_remainder=True)
 
     return dataset
@@ -259,7 +262,7 @@ def create_lane_test_dataset(data_root_path, test_label_file, batch_size,
                           output_columns=['image'],
                           num_parallel_workers=num_workers)
 
-    dataset = dataset.shuffle(buffer_size=1000)
+    dataset = dataset.shuffle(buffer_size=10)
     dataset = dataset.batch(batch_size=batch_size, drop_remainder=True)
 
     return dataset
