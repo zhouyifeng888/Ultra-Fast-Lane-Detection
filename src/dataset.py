@@ -262,7 +262,6 @@ def create_lane_test_dataset(data_root_path, test_label_file, batch_size,
                           output_columns=['image'],
                           num_parallel_workers=num_workers)
 
-    dataset = dataset.shuffle(buffer_size=10)
     dataset = dataset.batch(batch_size=batch_size, drop_remainder=True)
 
     return dataset
