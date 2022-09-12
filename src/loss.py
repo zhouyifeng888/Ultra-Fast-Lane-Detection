@@ -18,7 +18,8 @@ class SoftmaxFocalLoss(nn.Cell):
         self.pow = P.Pow()
         self.log_softmax = nn.LogSoftmax(axis=1)
         self.griding_num = cfg.griding_num
-        self.weight = Tensor(np.ones((self.griding_num+1,))).astype(np.float32)
+        self.weight = Tensor(
+            np.ones((self.griding_num + 1,))).astype(np.float32)
         self.reshape = P.Reshape()
         self.nll = P.NLLLoss(reduction="mean")
 
@@ -29,7 +30,7 @@ class SoftmaxFocalLoss(nn.Cell):
         log_score = factor * log_score
         log_score = self.reshape(log_score, (-1, self.griding_num + 1))
         labels = self.reshape(labels, (-1,))
-        loss = self.nll(log_score, labels, self.weight)
+        loss, _ = self.nll(log_score, labels, self.weight)
         return loss
 
 
@@ -86,7 +87,6 @@ class TrainLoss(nn.Cell):
 
         self.w1 = 1.0
         self.loss1 = SoftmaxFocalLoss(gamma=gamma)
-#        self.loss1 = nn.FocalLoss(weight=None, gamma=2.0, reduction='mean')
         self.w2 = cfg.sim_loss_w
         self.loss2 = ParsingRelationLoss()
         self.w3 = 1.0
