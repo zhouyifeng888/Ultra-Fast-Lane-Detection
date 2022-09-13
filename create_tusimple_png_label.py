@@ -5,6 +5,8 @@ import json
 from PIL import Image
 import numpy as np
 
+from src.config import config as cfg
+
 data_root = '../../dataset/Tusimple/train_set'
 train_gt_path = os.path.join(data_root, 'train_gt.txt')
 label_info_path1 = os.path.join(data_root, 'label_data_0313.json')
@@ -46,7 +48,12 @@ for i in range(len(lines)):
         for coordinate_id in range(len(lane)):
             lane_w = lane[coordinate_id]
             lane_h = label_info['h_samples'][coordinate_id]
-            png_arr[lane_h, lane_w] = label_id
+            if label_id<=cfg.num_lanes and lane_w!=-2:
+                w_l = int(lane_w-(w/cfg.griding_num)/2)
+                w_r = int(lane_w+(w/cfg.griding_num)/2)
+                h_t = int(lane_h-(h/len(cfg.row_anchor))/2)
+                h_b = int(lane_h+(h/len(cfg.row_anchor))/2)
+                png_arr[h_t:h_b, w_l:w_r] = label_id
             
     png_label = Image.fromarray(png_arr.astype(np.uint8))
     png_label.save(label_file_path)

@@ -247,7 +247,7 @@ def main():
         model = Model(net_with_loss, None, opt, boost_level='O0',
                       amp_level=cfg.amp_level)
 
-    loss_cb = LossMonitor(per_print_times=1)
+    loss_cb = LossMonitor(per_print_times=10)
     time_cb = TimeMonitor(data_size=batches_per_epoch)
     val_cb = Val_Callback(
         model, val_dataset, device_id, label_info_list, cfg.train_url)
