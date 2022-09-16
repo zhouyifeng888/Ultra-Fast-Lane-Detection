@@ -78,6 +78,19 @@ class ParsingRelationDis(nn.Cell):
         loss = loss / (len(diff_list1) - 1)
         return loss
 
+class FocalLoss(nn.Cell):
+    def __init__(self, weight=None, gamma=2.0, reduction='mean'):
+        super(FocalLoss, self).__init__()
+        self.depth = cfg.griding_num + 1
+        self.onehot = P.OneHot(axis=1)
+        self.on_value = Tensor(1.0, ms.float32)
+        self.off_value = Tensor(0.0, ms.float32)
+        self.focal_loss = nn.FocalLoss(weight=None, gamma=2.0, reduction='mean')
+
+    def construct(self, cls_out, cls_label):
+        cls_label = self.onehot(cls_label, self.depth,
+                                self.on_value, self.off_value)
+        return self.focal_loss(cls_out, cls_label)
 
 class TrainLoss(nn.Cell):
     def __init__(self, gamma=2, data_type=ms.float16):
@@ -86,7 +99,8 @@ class TrainLoss(nn.Cell):
         self.reshape = P.Reshape()
 
         self.w1 = 1.0
-        self.loss1 = SoftmaxFocalLoss(gamma=gamma)
+#        self.loss1 = SoftmaxFocalLoss(gamma=gamma)
+        self.loss1 = FocalLoss(weight=None, gamma=2.0, reduction='mean')
         self.w2 = cfg.sim_loss_w
         self.loss2 = ParsingRelationLoss()
         self.w3 = 1.0
