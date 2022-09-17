@@ -34,6 +34,8 @@ from src.config import config as cfg
 from src.loss import TrainLoss, NetWithLossCell
 from src.lr_scheduler import warmup_cosine_annealing_lr_V2
 
+#from mindspore.profiler import Profiler
+
 ms.common.set_seed(12345)
 random.seed(12345)
 np.random.seed(12345)
@@ -261,7 +263,7 @@ def main():
     model.train(cfg.epochs - cfg.start_epochs, train_dataset,
                 callbacks=callbacks, dataset_sink_mode=cfg.dataset_sink_mode)
 
-    # profiler.analyse()
+    #profiler.analyse()
 
 
 if __name__ == '__main__':

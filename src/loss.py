@@ -85,9 +85,11 @@ class FocalLoss(nn.Cell):
         self.onehot = P.OneHot(axis=1)
         self.on_value = Tensor(1.0, ms.float32)
         self.off_value = Tensor(0.0, ms.float32)
+        self.softmax = P.Softmax(axis=1)
         self.focal_loss = nn.FocalLoss(weight=None, gamma=2.0, reduction='mean')
 
     def construct(self, cls_out, cls_label):
+        cls_out = self.softmax(cls_out)
         cls_label = self.onehot(cls_label, self.depth,
                                 self.on_value, self.off_value)
         return self.focal_loss(cls_out, cls_label)
@@ -99,8 +101,8 @@ class TrainLoss(nn.Cell):
         self.reshape = P.Reshape()
 
         self.w1 = 1.0
-#        self.loss1 = SoftmaxFocalLoss(gamma=gamma)
-        self.loss1 = FocalLoss(weight=None, gamma=2.0, reduction='mean')
+        self.loss1 = SoftmaxFocalLoss(gamma=gamma)
+#        self.loss1 = FocalLoss(weight=None, gamma=2.0, reduction='mean')
         self.w2 = cfg.sim_loss_w
         self.loss2 = ParsingRelationLoss()
         self.w3 = 1.0
@@ -113,8 +115,7 @@ class TrainLoss(nn.Cell):
     def construct(self, cls_out, seg_out, cls_label, seg_label):
         total_loss = self.w1 * self.loss1(cls_out, cls_label) + \
             self.w2 * self.loss2(cls_out) + \
-            self.w3 * self.loss3(self.reshape(seg_out, (-1, self.num_lanes + 1)), self.reshape(seg_label, (-1,))) + \
-            self.w4 * self.loss4(cls_out)
+            self.w3 * self.loss3(self.reshape(seg_out, (-1, self.num_lanes + 1)), self.reshape(seg_label, (-1,)))
         return total_loss
 
 
