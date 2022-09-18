@@ -41,3 +41,9 @@ backbone_pretrain : '../resnet18_ascend_v150_imagenet2012_official_cv_top1acc70.
 sim_loss_w : 1.0
 shp_loss_w : 0.0
 
+no_weight_decay_filter : "beta,bias"
+gc_flag : 0
+beta1 : 0.9
+beta2 : 0.999
+loss_scale : 1024
+

@@ -28,7 +28,7 @@ def main():
 
     backbone = get_resnet(resnet_type=cfg.backbone)
     net = ParsingNet(cfg.backbone, backbone, cls_dim=(
-        cfg.griding_num + 1, len(cfg.row_anchor), cfg.num_lanes), use_aux=True)
+        cfg.griding_num + 1, len(cfg.row_anchor), cfg.num_lanes), use_aux=False)
     print_trainable_params_count(net)
 
     if cfg.resume and cfg.resume != 'None':

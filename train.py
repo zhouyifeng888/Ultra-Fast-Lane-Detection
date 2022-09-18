@@ -33,6 +33,7 @@ from src.dataset import create_lane_train_dataset, create_lane_test_dataset
 from src.config import config as cfg
 from src.loss import TrainLoss, NetWithLossCell
 from src.lr_scheduler import warmup_cosine_annealing_lr_V2
+from src.optimizer import get_optimizer
 
 #from mindspore.profiler import Profiler
 
@@ -240,6 +241,12 @@ def main():
             nesterov=True,
             loss_scale=1024.0 if cfg.amp_level == 'O3' else 1.0
         )
+#    opt, _ = get_optimizer(optimizer_name=cfg.optimizer,
+#                                 network=net,
+#                                 lrs=lr,
+#                                 cfg=cfg)
+    
+    
     loss_scale_manager = FixedLossScaleManager(
         1024.0, drop_overflow_update=False)
     if cfg.amp_level == 'O3':

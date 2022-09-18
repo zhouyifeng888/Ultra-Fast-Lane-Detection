@@ -2,6 +2,7 @@ import numpy as np
 
 import mindspore.nn as nn
 import mindspore.ops as P
+#from mindspore.common.initializer import Normal(sigma=0.01, mean=0.0)
 
 
 class ConvBNRelu(nn.Cell):
@@ -9,7 +10,7 @@ class ConvBNRelu(nn.Cell):
         super(ConvBNRelu, self).__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size,
                               stride=stride, pad_mode='pad', padding=padding, dilation=dilation,
-                              has_bias=bias)
+                              has_bias=bias, weight_init='HeUniform')
         self.bn = nn.BatchNorm2d(out_channels)
         self.relu = nn.ReLU()
 
@@ -55,7 +56,7 @@ class ParsingNet(nn.Cell):
                 ConvBNRelu(128, 128, 3, padding=2, dilation=2),
                 ConvBNRelu(128, 128, 3, padding=4, dilation=4),
                 nn.Conv2d(128, cls_dim[-1] + 1, 1,
-                          pad_mode="pad", padding=0, has_bias=True)
+                          pad_mode="pad", padding=0, has_bias=True, weight_init='HeUniform')
             ])
 
         self.classier = nn.SequentialCell([
@@ -66,8 +67,8 @@ class ParsingNet(nn.Cell):
 
         self.concat = P.Concat(axis=1)
 
-        self.pool = nn.Conv2d(512, 8, 1, pad_mode="pad", padding=0, has_bias=True) if backbone_type in [
-            '34', '18'] else nn.Conv2d(2048, 8, 1, pad_mode="pad", padding=0, has_bias=True)
+        self.pool = nn.Conv2d(512, 8, 1, pad_mode="pad", padding=0, has_bias=True, weight_init='HeUniform') if backbone_type in [
+            '34', '18'] else nn.Conv2d(2048, 8, 1, pad_mode="pad", padding=0, has_bias=True, weight_init='HeUniform')
 
     def construct(self, x):
         x2, x3, fea = self.backbone(x)

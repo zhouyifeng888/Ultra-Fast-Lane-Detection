@@ -16,18 +16,26 @@ class SoftmaxFocalLoss(nn.Cell):
         self.gamma = gamma
         self.softmax = P.Softmax(axis=1)
         self.pow = P.Pow()
-        self.log_softmax = nn.LogSoftmax(axis=1)
+#        self.log_softmax = nn.LogSoftmax(axis=1)
+        self.softmax2 = P.Softmax(axis=1)
+        self.log = P.Log()
+        
         self.griding_num = cfg.griding_num
         self.weight = Tensor(
             np.ones((self.griding_num + 1,))).astype(np.float32)
+        self.transpose = P.Transpose()
         self.reshape = P.Reshape()
         self.nll = P.NLLLoss(reduction="mean")
 
     def construct(self, logits, labels):
         scores = self.softmax(logits)
         factor = self.pow(1.0 - scores, self.gamma)
-        log_score = self.log_softmax(logits)
+        
+        logits2 = self.softmax2(logits)
+        log_score = self.log(logits2)
+        
         log_score = factor * log_score
+        log_score = self.transpose(log_score, (0, 2, 3, 1))
         log_score = self.reshape(log_score, (-1, self.griding_num + 1))
         labels = self.reshape(labels, (-1,))
         loss, _ = self.nll(log_score, labels, self.weight)
@@ -98,6 +106,7 @@ class TrainLoss(nn.Cell):
     def __init__(self, gamma=2, data_type=ms.float16):
         super(TrainLoss, self).__init__()
         self.num_lanes = cfg.num_lanes
+        self.transpose = P.Transpose()
         self.reshape = P.Reshape()
 
         self.w1 = 1.0
@@ -115,7 +124,7 @@ class TrainLoss(nn.Cell):
     def construct(self, cls_out, seg_out, cls_label, seg_label):
         total_loss = self.w1 * self.loss1(cls_out, cls_label) + \
             self.w2 * self.loss2(cls_out) + \
-            self.w3 * self.loss3(self.reshape(seg_out, (-1, self.num_lanes + 1)), self.reshape(seg_label, (-1,)))
+            self.w3 * self.loss3(self.reshape(self.transpose(seg_out, (0, 2, 3, 1)), (-1, self.num_lanes + 1)), self.reshape(seg_label, (-1,)))
         return total_loss
 
 

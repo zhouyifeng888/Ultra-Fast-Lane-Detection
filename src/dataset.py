@@ -21,9 +21,6 @@ class LaneTrainDataset:
             self.list = f.readlines()
 
     def __getitem__(self, index):
-        if index == 0:
-            random.shuffle(self.list)
-
         l = self.list[index]
         l_info = l.split()
         img_name, label_name = l_info[0], l_info[1]
