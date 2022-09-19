@@ -102,18 +102,12 @@ class TusimpleAccEval(object):
             s -= min(line_accs)
         return s / max(min(4.0, len(gt)), 1.)
 
-def count_im_pair(const vector<vector<Point2f> > &anno_lanes, const vector<vector<Point2f> > &detect_lanes):
-	anno_match = np.zeros(len(anno_lanes)).astype(np.int32)-1;
-	vector<int> detect_match;
-	if(len(anno_lanes))
-	{
-		return (0, len(detect_lanes), 0, 0);
-	}
+def count_im_pair(anno_lanes, detect_lanes, sim_threshold=0.5):
+	if len(anno_lanes):
+		return (0, len(detect_lanes), 0, 0)
 
-	if(len(detect_lanes))
-	{
-		return (0, 0, 0, len(anno_lanes));
-	}
+	if len(detect_lanes):
+		return (0, 0, 0, len(anno_lanes))
     
     similarity = []
     for _ in range(len(anno_lanes)):
@@ -124,41 +118,11 @@ def count_im_pair(const vector<vector<Point2f> > &anno_lanes, const vector<vecto
     for i in range(len(anno_lanes)):
 		curr_anno_lane = anno_lanes[i]
         for j in range(len(detect_lanes)):
-		{
 			curr_detect_lane = detect_lanes[j];
 			similarity[i][j] = get_lane_similarity(curr_anno_lane, curr_detect_lane);
-		}
-
-
     
-    
-    
-	makeMatch(similarity, anno_match, detect_match);
-
-	
-	int curr_tp = 0;
-	// count and add
-	for(int i=0; i<anno_lanes.size(); i++)
-	{
-		if(anno_match[i]>=0 && similarity[i][anno_match[i]] > sim_threshold)
-		{
-			curr_tp++;
-		}
-		else
-		{
-			anno_match[i] = -1;
-		}
-	}
-	int curr_fn = anno_lanes.size() - curr_tp;
-	int curr_fp = detect_lanes.size() - curr_tp;
-	return make_tuple(anno_match, curr_tp, curr_fp, 0, curr_fn);
-
-
-
-def makeMatch(const vector<vector<double> > &similarity, vector<int> &match1, vector<int> &match2) {
-	m = len(similarity);
+    m = len(similarity);
 	n = len(similarity[0])
-    pipartiteGraph gra;
     have_exchange = false;
     if (m > n) {
         have_exchange = true;
@@ -167,29 +131,65 @@ def makeMatch(const vector<vector<double> > &similarity, vector<int> &match1, ve
         n = tmp
     }
     
+    gra = PipartiteGraph(m , n)
     
-    
-    gra.resize(m, n);
-    
-    leftNum = m
-    rightNum = n
-    leftMatch = [0]*leftNum
-    rightMatch = [0]*rightNum
-    
-    
-    for (int i = 0; i < gra.leftNum; i++) {
-        for (int j = 0; j < gra.rightNum; j++) {
+    for i in range(gra.leftNum):
+        for j in range(gra.rightNum):
 			if(have_exchange)
 				gra.mat[i][j] = similarity[j][i];
 			else
 				gra.mat[i][j] = similarity[i][j];
-        }
-    }
+        
     gra.match();
     match1 = gra.leftMatch;
     match2 = gra.rightMatch;
-    if (have_exchange) swap(match1, match2);
-}
+    if have_exchange:
+        tmp = match1
+        match1 = match2
+        match2 = tmp
+    anno_match = match1
+
+	
+	curr_tp = 0;
+	for i in range(anno_lanes.size()):
+		if anno_match[i]>=0 and similarity[i][anno_match[i]] > sim_threshold:
+			curr_tp++
+		else:
+			anno_match[i] = -1
+	
+	curr_fn = len(anno_lanes) - curr_tp
+	curr_fp = len(detect_lanes) - curr_tp
+	return (curr_tp, curr_fp, 0, curr_fn)
+
+
+
+#def makeMatch(const vector<vector<double> > &similarity, vector<int> &match1, vector<int> &match2):
+#	m = len(similarity);
+#	n = len(similarity[0])
+#    have_exchange = false;
+#    if (m > n) {
+#        have_exchange = true;
+#        tmp = m
+#        m = n
+#        n = tmp
+#    }
+#    
+#    gra = PipartiteGraph(m , n)
+#    
+#    for i in range(gra.leftNum):
+#        for j in range(gra.rightNum):
+#			if(have_exchange)
+#				gra.mat[i][j] = similarity[j][i];
+#			else
+#				gra.mat[i][j] = similarity[i][j];
+#        
+#    gra.match();
+#    match1 = gra.leftMatch;
+#    match2 = gra.rightMatch;
+#    if have_exchange:
+#        tmp = match1
+#        match1 = match2
+#        match2 = tmp
         
 def get_lane_similarity(lane1, lane2, lane_width=30):
     
@@ -327,13 +327,6 @@ def cal_fun(point_v)
             
             
 class PipartiteGraph:
-    vector<vector<double> > mat;
-    vector<bool> leftUsed, rightUsed;
-    vector<double> leftWeight, rightWeight;
-    vector<int>rightMatch, leftMatch;
-    int leftNum, rightNum;
-    
-    
     def __init__(self,int leftNum, int rightNum):
         self.leftNum = leftNum
         self.rightNum = rightNum
@@ -346,7 +339,6 @@ class PipartiteGraph:
         self.mat = []
         for i in range(leftNum):
             self.mat.append([0.0]*rightNum)
-    
     
     def matchDfs(u):
         self.leftUsed[u] = True;
@@ -372,15 +364,19 @@ class PipartiteGraph:
                 if matchDfs(u):
                     break;
                     
-                double d = 1e10;
-                for (int i = 0; i < leftNum; i++) {
-                    if (leftUsed[i] ) {
-                        for (int j = 0; j < rightNum; j++) {
-                            if (!rightUsed[j]) d = min(d, leftWeight[i] + rightWeight[j] - mat[i][j]);
-                        }
-                    }
-                }
-                if (d == 1e10) return ;
-                for (int i = 0; i < leftNum; i++) if (leftUsed[i]) leftWeight[i] -= d;
-                for (int i = 0; i < rightNum; i++) if (rightUsed[i]) rightWeight[i] += d;
+                d = 1e10;
+                for i in range(self.leftNum):
+                    if self.leftUsed[i]:
+                        for j in range(self.rightNum):
+                            if not self.rightUsed[j]:
+                                d = min(d, self.leftWeight[i] + self.rightWeight[j] - self.mat[i][j]);
+                        
+                if d == 1e10:
+                    return
+                for i in range(self.leftNum):
+                    if self.leftUsed[i]:
+                        self.leftWeight[i] -= d;
+                for i in range(self.rightNum):
+                    if self.rightUsed[i]:
+                        self.rightWeight[i] += d;
         
