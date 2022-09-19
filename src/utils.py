@@ -103,11 +103,11 @@ class TusimpleAccEval(object):
         return s / max(min(4.0, len(gt)), 1.)
 
 def count_im_pair(anno_lanes, detect_lanes, sim_threshold=0.5):
-	if len(anno_lanes):
-		return (0, len(detect_lanes), 0, 0)
+    if len(anno_lanes):
+        return (0, len(detect_lanes), 0, 0)
 
-	if len(detect_lanes):
-		return (0, 0, 0, len(anno_lanes))
+    if len(detect_lanes):
+        return (0, 0, 0, len(anno_lanes))
     
     similarity = []
     for _ in range(len(anno_lanes)):
@@ -116,29 +116,28 @@ def count_im_pair(anno_lanes, detect_lanes, sim_threshold=0.5):
     
     
     for i in range(len(anno_lanes)):
-		curr_anno_lane = anno_lanes[i]
+        curr_anno_lane = anno_lanes[i]
         for j in range(len(detect_lanes)):
-			curr_detect_lane = detect_lanes[j];
-			similarity[i][j] = get_lane_similarity(curr_anno_lane, curr_detect_lane);
+            curr_detect_lane = detect_lanes[j];
+            similarity[i][j] = get_lane_similarity(curr_anno_lane, curr_detect_lane);
     
     m = len(similarity);
-	n = len(similarity[0])
-    have_exchange = false;
-    if (m > n) {
+    n = len(similarity[0])
+    have_exchange = False;
+    if m > n:
         have_exchange = true;
         tmp = m
         m = n
         n = tmp
-    }
     
     gra = PipartiteGraph(m , n)
     
     for i in range(gra.leftNum):
         for j in range(gra.rightNum):
-			if(have_exchange)
-				gra.mat[i][j] = similarity[j][i];
-			else
-				gra.mat[i][j] = similarity[i][j];
+            if have_exchange:
+                gra.mat[i][j] = similarity[j][i];
+            else:
+                gra.mat[i][j] = similarity[i][j];
         
     gra.match();
     match1 = gra.leftMatch;
