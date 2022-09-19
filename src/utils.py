@@ -110,10 +110,10 @@ class CULaneF1Eval(object):
         self.im_width = im_width
 
     def count_im_pair(self, anno_lanes, detect_lanes):
-        if len(anno_lanes):
+        if len(anno_lanes)<=0:
             return (0, len(detect_lanes), 0)
     
-        if len(detect_lanes):
+        if len(detect_lanes)<=0:
             return (0, 0, len(anno_lanes))
         
         similarity = []
@@ -157,7 +157,11 @@ class CULaneF1Eval(object):
     
     	
         curr_tp = 0;
-        for i in range(anno_lanes.size()):
+        for i in range(len(anno_lanes)):
+            if anno_match[i]>=0:
+                print(f'========iou:{similarity[i][anno_match[i]]}')
+            else:
+                print(f'iou:{0}')
             if anno_match[i]>=0 and similarity[i][anno_match[i]] > self.sim_threshold:
                 curr_tp+=1
             else:
@@ -170,33 +174,34 @@ class CULaneF1Eval(object):
             
     def get_lane_similarity(self, lane1, lane2):
         
-    	if len(lane1)<2 or len(lane2)<2:
-    		return 0;
+        if len(lane1)<2 or len(lane2)<2:
+            return 0;
         
-    	im1 = np.zeros((self.im_height, self.im_width)).astype(np.uint8)
-    	im2 = np.zeros((self.im_height, self.im_width)).astype(np.uint8)
+        im1 = np.zeros((self.im_height, self.im_width)).astype(np.uint8)
+        im2 = np.zeros((self.im_height, self.im_width)).astype(np.uint8)
         
-    	if len(lane1)==2:
-    		p_interp1 = lane1;
-    	else:
-    		p_interp1 = self.splineInterpTimes(lane1, 50);
+        if len(lane1)==2:
+            p_interp1 = lane1;
+        else:
+            p_interp1 = self.splineInterpTimes(lane1, 50);
     
-    	if len(lane2)==2:
-    		p_interp2 = lane2;
-    	else:
-    		p_interp2 = self.splineInterpTimes(lane2, 50);
+        if len(lane2)==2:
+            p_interp2 = lane2;
+        else:
+            p_interp2 = self.splineInterpTimes(lane2, 50);
     	
-    	for n in range(len(p_interp1)-1):
-    		cv2.line(im1, p_interp1[n], p_interp1[n+1], 1, self.lane_width)
-    	for n in range(len(p_interp2)-1):
-    		cv2.line(im2, p_interp2[n], p_interp2[n+1], 1, self.lane_width)
-    
-    	sum_1 = im1.sum()
-    	sum_2 = im2.sum()
-    	inter_sum = (im1*im2).sum()
-    	union_sum = sum_1 + sum_2 - inter_sum; 
-    	iou = inter_sum / union_sum;
-    	return iou;
+        for n in range(len(p_interp1)-1):
+            cv2.line(im1, (int(p_interp1[n][0]), int(p_interp1[n][1])), (int(p_interp1[n+1][0]), int(p_interp1[n+1][1])), 1, self.lane_width)
+        for n in range(len(p_interp2)-1):
+            cv2.line(im2, (int(p_interp2[n][0]), int(p_interp2[n][1])), (int(p_interp2[n+1][0]), int(p_interp2[n+1][1])), 1, self.lane_width)
+            
+        sum_1 = im1.sum()
+        sum_2 = im2.sum()
+        inter_sum = (im1*im2).sum()
+        union_sum = sum_1 + sum_2 - inter_sum
+        iou = inter_sum / union_sum;
+        print(f'inner iou:{iou}')
+        return iou;
     
     def splineInterpTimes(self, tmp_line, times):
         res= [];
@@ -219,7 +224,7 @@ class CULaneF1Eval(object):
                 return res;
             for j in range(len(tmp_func)):
                 delta = tmp_func[j]['h'] / times;
-                for k in range(len(times)):
+                for k in range(times):
                     t1 = delta*k;
                     x1 = tmp_func[j]['a_x'] + tmp_func[j]['b_x']*t1 + tmp_func[j]['c_x']*math.pow(t1,2) + tmp_func[j]['d_x']*math.pow(t1,3)
                     y1 = tmp_func[j]['a_y'] + tmp_func[j]['b_y']*t1 + tmp_func[j]['c_y']*math.pow(t1,2) + tmp_func[j]['d_y']*math.pow(t1,3)
@@ -245,7 +250,7 @@ class CULaneF1Eval(object):
         C = [0.0]*(n-2)
         Dx = [0.0]*(n-2)
         Dy = [0.0]*(n-2)
-        h = [0.0]*(n-2)
+        h = [0.0]*(n-1)
     
         for i in range(n-1):
             h[i] = math.sqrt(math.pow(point_v[i+1][0] - point_v[i][0], 2) + math.pow(point_v[i+1][1] - point_v[i][1], 2));
@@ -389,10 +394,12 @@ dir1_list = os.listdir(pre_root)
 tp = 0
 fp = 0
 fn = 0
+
+count = 0
 for dir1 in dir1_list:
     dir2_list = os.listdir(os.path.join(pre_root,dir1))
     for dir2 in dir2_list:
-        label_file_list = os.path.join(pre_root, dir1, dir2)
+        label_file_list = os.listdir(os.path.join(pre_root, dir1, dir2))
         for label_file in label_file_list:
             with open(os.path.join(gt_root, dir1,dir2,label_file)) as f:
                 gt_lines = f.readlines()
@@ -403,22 +410,25 @@ for dir1 in dir1_list:
             for line in gt_lines:
                 cur_lane = []
                 line_info = line.split()
-                for i in range(len(line_info)/2):
-                    cur_lane.append((int(line_info[i*2]), int(line_info[i*2+1])))
+                for i in range(int(len(line_info)/2)):
+                    cur_lane.append((float(line_info[i*2]), float(line_info[i*2+1])))
                 anno_lanes.append(cur_lane)
                 
             detect_lanes = []
             for line in pre_lines:
                 cur_lane = []
                 line_info = line.split()
-                for i in range(len(line_info)/2):
-                    cur_lane.append((int(line_info[i*2]), int(line_info[i*2+1])))
+                for i in range(int(len(line_info)/2)):
+                    cur_lane.append((float(line_info[i*2]), float(line_info[i*2+1])))
                 detect_lanes.append(cur_lane)
                 
             curr_tp, curr_fp, curr_fn = f1_eval.count_im_pair(anno_lanes, detect_lanes)
             tp += curr_tp
             fp += curr_fp
             fn += curr_fn
+            
+            count+=1
+#            print(f'count:{count}, curr_tp:{curr_tp}, curr_fp:{curr_fp}, curr_fn:{curr_fn}')
             
 precision = tp * 1.0/(tp + fp)
 recall = tp * 1.0/(tp + fn)
