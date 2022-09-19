@@ -102,226 +102,204 @@ class TusimpleAccEval(object):
             s -= min(line_accs)
         return s / max(min(4.0, len(gt)), 1.)
 
-def count_im_pair(anno_lanes, detect_lanes, sim_threshold=0.5):
-    if len(anno_lanes):
-        return (0, len(detect_lanes), 0, 0)
+class CULaneF1Eval(object):
+    def __init__(self, sim_threshold=0.5, lane_width=30, im_height=590, im_width=1640):
+        self.sim_threshold = sim_threshold
+        self.lane_width = lane_width
+        self.im_height = im_height
+        self.im_width = im_width
 
-    if len(detect_lanes):
-        return (0, 0, 0, len(anno_lanes))
+    def count_im_pair(self, anno_lanes, detect_lanes):
+        if len(anno_lanes):
+            return (0, len(detect_lanes), 0)
     
-    similarity = []
-    for _ in range(len(anno_lanes)):
-        similarity.append(np.zeros(len(detect_lanes)))
-    similarity = np.array(similarity).astype(np.int64)
+        if len(detect_lanes):
+            return (0, 0, len(anno_lanes))
+        
+        similarity = []
+        for _ in range(len(anno_lanes)):
+            similarity.append(np.zeros(len(detect_lanes)))
+        similarity = np.array(similarity).astype(np.int64)
+        
+        
+        for i in range(len(anno_lanes)):
+            curr_anno_lane = anno_lanes[i]
+            for j in range(len(detect_lanes)):
+                curr_detect_lane = detect_lanes[j];
+                similarity[i][j] = self.get_lane_similarity(curr_anno_lane, curr_detect_lane);
+        
+        m = len(similarity);
+        n = len(similarity[0])
+        have_exchange = False;
+        if m > n:
+            have_exchange = True;
+            tmp = m
+            m = n
+            n = tmp
+        
+        gra = PipartiteGraph(m , n)
+        
+        for i in range(gra.leftNum):
+            for j in range(gra.rightNum):
+                if have_exchange:
+                    gra.mat[i][j] = similarity[j][i];
+                else:
+                    gra.mat[i][j] = similarity[i][j];
+            
+        gra.match();
+        match1 = gra.leftMatch;
+        match2 = gra.rightMatch;
+        if have_exchange:
+            tmp = match1
+            match1 = match2
+            match2 = tmp
+        anno_match = match1
     
-    
-    for i in range(len(anno_lanes)):
-        curr_anno_lane = anno_lanes[i]
-        for j in range(len(detect_lanes)):
-            curr_detect_lane = detect_lanes[j];
-            similarity[i][j] = get_lane_similarity(curr_anno_lane, curr_detect_lane);
-    
-    m = len(similarity);
-    n = len(similarity[0])
-    have_exchange = False;
-    if m > n:
-        have_exchange = True;
-        tmp = m
-        m = n
-        n = tmp
-    
-    gra = PipartiteGraph(m , n)
-    
-    for i in range(gra.leftNum):
-        for j in range(gra.rightNum):
-            if have_exchange:
-                gra.mat[i][j] = similarity[j][i];
+    	
+        curr_tp = 0;
+        for i in range(anno_lanes.size()):
+            if anno_match[i]>=0 and similarity[i][anno_match[i]] > self.sim_threshold:
+                curr_tp+=1
             else:
-                gra.mat[i][j] = similarity[i][j];
+                anno_match[i] = -1
+    	
+        curr_fn = len(anno_lanes) - curr_tp
+        curr_fp = len(detect_lanes) - curr_tp
+        return (curr_tp, curr_fp, curr_fn)
+    
+            
+    def get_lane_similarity(self, lane1, lane2):
         
-    gra.match();
-    match1 = gra.leftMatch;
-    match2 = gra.rightMatch;
-    if have_exchange:
-        tmp = match1
-        match1 = match2
-        match2 = tmp
-    anno_match = match1
-
-	
-    curr_tp = 0;
-    for i in range(anno_lanes.size()):
-        if anno_match[i]>=0 and similarity[i][anno_match[i]] > sim_threshold:
-            curr_tp+=1
+    	if len(lane1)<2 or len(lane2)<2:
+    		return 0;
+        
+    	im1 = np.zeros((self.im_height, self.im_width)).astype(np.uint8)
+    	im2 = np.zeros((self.im_height, self.im_width)).astype(np.uint8)
+        
+    	if len(lane1)==2:
+    		p_interp1 = lane1;
+    	else:
+    		p_interp1 = self.splineInterpTimes(lane1, 50);
+    
+    	if len(lane2)==2:
+    		p_interp2 = lane2;
+    	else:
+    		p_interp2 = self.splineInterpTimes(lane2, 50);
+    	
+    	for n in range(len(p_interp1)-1):
+    		cv2.line(im1, p_interp1[n], p_interp1[n+1], 1, self.lane_width)
+    	for n in range(len(p_interp2)-1):
+    		cv2.line(im2, p_interp2[n], p_interp2[n+1], 1, self.lane_width)
+    
+    	sum_1 = im1.sum()
+    	sum_2 = im2.sum()
+    	inter_sum = (im1*im2).sum()
+    	union_sum = sum_1 + sum_2 - inter_sum; 
+    	iou = inter_sum / union_sum;
+    	return iou;
+    
+    def splineInterpTimes(self, tmp_line, times):
+        res= [];
+    
+        if len(tmp_line) == 2:
+            x1 = tmp_line[0][0]
+            y1 = tmp_line[0][1]
+            x2 = tmp_line[1][0]
+            y2 = tmp_line[1][1]
+    
+            for k in range(times):
+                xi =  x1 + float((x2 - x1) * k) / times
+                yi =  y1 + float((y2 - y1) * k) / times
+                res.append((xi, yi));
+            
+        elif len(tmp_line) > 2:
+            tmp_func = self.cal_fun(tmp_line);
+            if len(tmp_func)<=0:
+                print("in splineInterpTimes: cal_fun failed")
+                return res;
+            for j in range(len(tmp_func)):
+                delta = tmp_func[j]['h'] / times;
+                for k in range(len(times)):
+                    t1 = delta*k;
+                    x1 = tmp_func[j]['a_x'] + tmp_func[j]['b_x']*t1 + tmp_func[j]['c_x']*math.pow(t1,2) + tmp_func[j]['d_x']*math.pow(t1,3)
+                    y1 = tmp_func[j]['a_y'] + tmp_func[j]['b_y']*t1 + tmp_func[j]['c_y']*math.pow(t1,2) + tmp_func[j]['d_y']*math.pow(t1,3)
+                    res.append((x1, y1));
+            
+            res.append(tmp_line[len(tmp_line) - 1])
         else:
-            anno_match[i] = -1
-	
-    curr_fn = len(anno_lanes) - curr_tp
-    curr_fp = len(detect_lanes) - curr_tp
-    return (curr_tp, curr_fp, 0, curr_fn)
-
-
-
-#def makeMatch(const vector<vector<double> > &similarity, vector<int> &match1, vector<int> &match2):
-#	m = len(similarity);
-#	n = len(similarity[0])
-#    have_exchange = false;
-#    if (m > n) {
-#        have_exchange = true;
-#        tmp = m
-#        m = n
-#        n = tmp
-#    }
-#    
-#    gra = PipartiteGraph(m , n)
-#    
-#    for i in range(gra.leftNum):
-#        for j in range(gra.rightNum):
-#			if(have_exchange)
-#				gra.mat[i][j] = similarity[j][i];
-#			else
-#				gra.mat[i][j] = similarity[i][j];
-#        
-#    gra.match();
-#    match1 = gra.leftMatch;
-#    match2 = gra.rightMatch;
-#    if have_exchange:
-#        tmp = match1
-#        match1 = match2
-#        match2 = tmp
+            print("in splineInterpTimes: not enough points")
+        return res;
+    
+    def cal_fun(self, point_v):
+        n = len(point_v)
+        func_v = [{}]*(n-1)
         
-def get_lane_similarity(lane1, lane2, lane_width=30, im_height=590, im_width=1640):
+        if n<=2:
+            print("in cal_fun: point number less than 3")
+            return func_v
     
-	if len(lane1)<2 or len(lane2)<2:
-		return 0;
+        Mx = [0.0]*n
+        My = [0.0]*n
+        A = [0.0]*(n-2)
+        B = [0.0]*(n-2)
+        C = [0.0]*(n-2)
+        Dx = [0.0]*(n-2)
+        Dy = [0.0]*(n-2)
+        h = [0.0]*(n-2)
     
-	im1 = np.zeros((im_height, im_width)).astype(np.uint8)
-	im2 = np.zeros((im_height, im_width)).astype(np.uint8)
+        for i in range(n-1):
+            h[i] = math.sqrt(math.pow(point_v[i+1][0] - point_v[i][0], 2) + math.pow(point_v[i+1][1] - point_v[i][1], 2));
     
-	if len(lane1)==2:
-		p_interp1 = lane1;
-	else:
-		p_interp1 = splineInterpTimes(lane1, 50);
-
-	if len(lane2)==2:
-		p_interp2 = lane2;
-	else:
-		p_interp2 = splineInterpTimes(lane2, 50);
-	
-	for n in range(len(p_interp1)-1):
-		cv2.line(im1, p_interp1[n], p_interp1[n+1], 1, lane_width)
-	for n in range(len(p_interp2)-1):
-		cv2.line(im2, p_interp2[n], p_interp2[n+1], 1, lane_width)
-
-	sum_1 = im1.sum()
-	sum_2 = im2.sum()
-	inter_sum = (im1*im2).sum()
-	union_sum = sum_1 + sum_2 - inter_sum; 
-	iou = inter_sum / union_sum;
-	return iou;
-
-def splineInterpTimes(tmp_line, times):
-    res= [];
-
-    if len(tmp_line) == 2:
-        x1 = tmp_line[0][0]
-        y1 = tmp_line[0][1]
-        x2 = tmp_line[1][0]
-        y2 = tmp_line[1][1]
-
-        for k in range(times):
-            xi =  x1 + float((x2 - x1) * k) / times
-            yi =  y1 + float((y2 - y1) * k) / times
-            res.append((xi, yi));
+        for i in range(n-2):
+            A[i] = h[i];
+            B[i] = 2*(h[i]+h[i+1]);
+            C[i] = h[i+1];
+    
+            Dx[i] =  6*( (point_v[i+2][0] - point_v[i+1][0])/h[i+1] - (point_v[i+1][0] - point_v[i][0])/h[i] );
+            Dy[i] =  6*( (point_v[i+2][1] - point_v[i+1][1])/h[i+1] - (point_v[i+1][1] - point_v[i][1])/h[i] );
+    
+        C[0] = C[0] / B[0];
+        Dx[0] = Dx[0] / B[0];
+        Dy[0] = Dy[0] / B[0];
         
-    elif len(tmp_line) > 2:
-        tmp_func = cal_fun(tmp_line);
-        if len(tmp_func)<=0:
-            print("in splineInterpTimes: cal_fun failed")
-            return res;
-        for j in range(len(tmp_func)):
-            delta = tmp_func[j]['h'] / times;
-            for k in range(len(times)):
-                t1 = delta*k;
-                x1 = tmp_func[j]['a_x'] + tmp_func[j]['b_x']*t1 + tmp_func[j]['c_x']*math.pow(t1,2) + tmp_func[j]['d_x']*math.pow(t1,3)
-                y1 = tmp_func[j]['a_y'] + tmp_func[j]['b_y']*t1 + tmp_func[j]['c_y']*math.pow(t1,2) + tmp_func[j]['d_y']*math.pow(t1,3)
-                res.append((x1, y1));
+        i =1 
+        while i<n-2:
+            tmp = B[i] - A[i]*C[i-1]
+            C[i] = C[i] / tmp
+            Dx[i] = (Dx[i] - A[i]*Dx[i-1]) / tmp
+            Dy[i] = (Dy[i] - A[i]*Dy[i-1]) / tmp
+            i+=1
+            
+        Mx[n-2] = Dx[n-3]
+        My[n-2] = Dy[n-3]
+        i = n-4
+        while i>=0:
+            Mx[i+1] = Dx[i] - C[i]*Mx[i+2]
+            My[i+1] = Dy[i] - C[i]*My[i+2]
+            i = i-1
+    
+        Mx[0] = 0
+        Mx[n-1] = 0
+        My[0] = 0
+        My[n-1] = 0
+    
+        for i in range(n-1):
+            func_v[i]['a_x'] = point_v[i][0]
+            func_v[i]['b_x'] = (point_v[i+1][0] - point_v[i][0])/h[i] - (2*h[i]*Mx[i] + h[i]*Mx[i+1]) / 6
+            func_v[i]['c_x'] = Mx[i]/2
+            func_v[i]['d_x'] = (Mx[i+1] - Mx[i]) / (6*h[i])
+    
+            func_v[i]['a_y'] = point_v[i][1]
+            func_v[i]['b_y'] = (point_v[i+1][1] - point_v[i][1])/h[i] - (2*h[i]*My[i] + h[i]*My[i+1]) / 6
+            func_v[i]['c_y'] = My[i]/2
+            func_v[i]['d_y'] = (My[i+1] - My[i]) / (6*h[i]);
+    
+            func_v[i]['h'] = h[i]
         
-        res.append(tmp_line[len(tmp_line) - 1])
-    else:
-        print("in splineInterpTimes: not enough points")
-    return res;
-
-def cal_fun(point_v):
-    n = len(point_v)
-    func_v = [{}]*(n-1)
-    
-    if n<=2:
-        print("in cal_fun: point number less than 3")
-        return func_v
-
-    Mx = [0.0]*n
-    My = [0.0]*n
-    A = [0.0]*(n-2)
-    B = [0.0]*(n-2)
-    C = [0.0]*(n-2)
-    Dx = [0.0]*(n-2)
-    Dy = [0.0]*(n-2)
-    h = [0.0]*(n-2)
-
-    for i in range(n-1):
-        h[i] = math.sqrt(math.pow(point_v[i+1][0] - point_v[i][0], 2) + math.pow(point_v[i+1][1] - point_v[i][1], 2));
-
-    for i in range(n-2):
-        A[i] = h[i];
-        B[i] = 2*(h[i]+h[i+1]);
-        C[i] = h[i+1];
-
-        Dx[i] =  6*( (point_v[i+2][0] - point_v[i+1][0])/h[i+1] - (point_v[i+1][0] - point_v[i][0])/h[i] );
-        Dy[i] =  6*( (point_v[i+2][1] - point_v[i+1][1])/h[i+1] - (point_v[i+1][1] - point_v[i][1])/h[i] );
-
-    C[0] = C[0] / B[0];
-    Dx[0] = Dx[0] / B[0];
-    Dy[0] = Dy[0] / B[0];
-    
-    i =1 
-    while i<n-2:
-        tmp = B[i] - A[i]*C[i-1]
-        C[i] = C[i] / tmp
-        Dx[i] = (Dx[i] - A[i]*Dx[i-1]) / tmp
-        Dy[i] = (Dy[i] - A[i]*Dy[i-1]) / tmp
-        i+=1
-        
-    Mx[n-2] = Dx[n-3]
-    My[n-2] = Dy[n-3]
-    i = n-4
-    while i>=0:
-        Mx[i+1] = Dx[i] - C[i]*Mx[i+2]
-        My[i+1] = Dy[i] - C[i]*My[i+2]
-        i = i-1
-
-    Mx[0] = 0
-    Mx[n-1] = 0
-    My[0] = 0
-    My[n-1] = 0
-
-    for i in range(n-1):
-        func_v[i]['a_x'] = point_v[i][0]
-        func_v[i]['b_x'] = (point_v[i+1][0] - point_v[i][0])/h[i] - (2*h[i]*Mx[i] + h[i]*Mx[i+1]) / 6
-        func_v[i]['c_x'] = Mx[i]/2
-        func_v[i]['d_x'] = (Mx[i+1] - Mx[i]) / (6*h[i])
-
-        func_v[i]['a_y'] = point_v[i][1]
-        func_v[i]['b_y'] = (point_v[i+1][1] - point_v[i][1])/h[i] - (2*h[i]*My[i] + h[i]*My[i+1]) / 6
-        func_v[i]['c_y'] = My[i]/2
-        func_v[i]['d_y'] = (My[i+1] - My[i]) / (6*h[i]);
-
-        func_v[i]['h'] = h[i]
-    
-    return func_v;
+        return func_v;
             
             
-class PipartiteGraph:
+class PipartiteGraph(object):
     def __init__(self,leftNum, rightNum):
         self.leftNum = leftNum
         self.rightNum = rightNum
@@ -375,3 +353,30 @@ class PipartiteGraph:
                     if self.rightUsed[i]:
                         self.rightWeight[i] += d;
         
+#def makeMatch(const vector<vector<double> > &similarity, vector<int> &match1, vector<int> &match2):
+#	m = len(similarity);
+#	n = len(similarity[0])
+#    have_exchange = false;
+#    if (m > n) {
+#        have_exchange = true;
+#        tmp = m
+#        m = n
+#        n = tmp
+#    }
+#    
+#    gra = PipartiteGraph(m , n)
+#    
+#    for i in range(gra.leftNum):
+#        for j in range(gra.rightNum):
+#			if(have_exchange)
+#				gra.mat[i][j] = similarity[j][i];
+#			else
+#				gra.mat[i][j] = similarity[i][j];
+#        
+#    gra.match();
+#    match1 = gra.leftMatch;
+#    match2 = gra.rightMatch;
+#    if have_exchange:
+#        tmp = match1
+#        match1 = match2
+#        match2 = tmp
