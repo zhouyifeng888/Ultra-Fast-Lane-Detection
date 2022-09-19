@@ -125,7 +125,7 @@ def count_im_pair(anno_lanes, detect_lanes, sim_threshold=0.5):
     n = len(similarity[0])
     have_exchange = False;
     if m > n:
-        have_exchange = true;
+        have_exchange = True;
         tmp = m
         m = n
         n = tmp
@@ -149,16 +149,16 @@ def count_im_pair(anno_lanes, detect_lanes, sim_threshold=0.5):
     anno_match = match1
 
 	
-	curr_tp = 0;
-	for i in range(anno_lanes.size()):
-		if anno_match[i]>=0 and similarity[i][anno_match[i]] > sim_threshold:
-			curr_tp++
-		else:
-			anno_match[i] = -1
+    curr_tp = 0;
+    for i in range(anno_lanes.size()):
+        if anno_match[i]>=0 and similarity[i][anno_match[i]] > sim_threshold:
+            curr_tp+=1
+        else:
+            anno_match[i] = -1
 	
-	curr_fn = len(anno_lanes) - curr_tp
-	curr_fp = len(detect_lanes) - curr_tp
-	return (curr_tp, curr_fp, 0, curr_fn)
+    curr_fn = len(anno_lanes) - curr_tp
+    curr_fp = len(detect_lanes) - curr_tp
+    return (curr_tp, curr_fp, 0, curr_fn)
 
 
 
@@ -190,9 +190,9 @@ def count_im_pair(anno_lanes, detect_lanes, sim_threshold=0.5):
 #        match1 = match2
 #        match2 = tmp
         
-def get_lane_similarity(lane1, lane2, lane_width=30):
+def get_lane_similarity(lane1, lane2, lane_width=30, im_height=590, im_width=1640):
     
-	if(len(lane1)<2 || len(lane2)<2):
+	if len(lane1)<2 or len(lane2)<2:
 		return 0;
     
 	im1 = np.zeros((im_height, im_width)).astype(np.uint8)
@@ -220,54 +220,51 @@ def get_lane_similarity(lane1, lane2, lane_width=30):
 	iou = inter_sum / union_sum;
 	return iou;
 
-vector<Point2f> Spline::splineInterpTimes(tmp_line, times):
+def splineInterpTimes(tmp_line, times):
     res= [];
 
     if len(tmp_line) == 2:
-        double x1 = tmp_line[0][0];
-        double y1 = tmp_line[0][1];
-        double x2 = tmp_line[1][0];
-        double y2 = tmp_line[1][1];
+        x1 = tmp_line[0][0]
+        y1 = tmp_line[0][1]
+        x2 = tmp_line[1][0]
+        y2 = tmp_line[1][1]
 
         for k in range(times):
-            double xi =  x1 + double((x2 - x1) * k) / times;
-            double yi =  y1 + double((y2 - y1) * k) / times;
+            xi =  x1 + float((x2 - x1) * k) / times
+            yi =  y1 + float((y2 - y1) * k) / times
             res.append((xi, yi));
         
     elif len(tmp_line) > 2:
         tmp_func = cal_fun(tmp_line);
-        if len(tmp_func)<=0 {
+        if len(tmp_func)<=0:
             print("in splineInterpTimes: cal_fun failed")
             return res;
-        }
         for j in range(len(tmp_func)):
             delta = tmp_func[j]['h'] / times;
             for k in range(len(times)):
-                double t1 = delta*k;
-                double x1 = tmp_func[j]['a_x'] + tmp_func[j]['b_x']*t1 + tmp_func[j]['c_x']*math.pow(t1,2) + tmp_func[j]['d_x']*math.pow(t1,3)
-                double y1 = tmp_func[j]['a_y'] + tmp_func[j]['b_y']*t1 + tmp_func[j]['c_y']*math.pow(t1,2) + tmp_func[j]['d_y']*math.pow(t1,3)
+                t1 = delta*k;
+                x1 = tmp_func[j]['a_x'] + tmp_func[j]['b_x']*t1 + tmp_func[j]['c_x']*math.pow(t1,2) + tmp_func[j]['d_x']*math.pow(t1,3)
+                y1 = tmp_func[j]['a_y'] + tmp_func[j]['b_y']*t1 + tmp_func[j]['c_y']*math.pow(t1,2) + tmp_func[j]['d_y']*math.pow(t1,3)
                 res.append((x1, y1));
         
         res.append(tmp_line[len(tmp_line) - 1])
-	else:
-		print("in splineInterpTimes: not enough points")
+    else:
+        print("in splineInterpTimes: not enough points")
     return res;
 
-def cal_fun(point_v)
-{   
+def cal_fun(point_v):
     n = len(point_v)
     func_v = [{}]*(n-1)
     
-    if(n<=2) {
+    if n<=2:
         print("in cal_fun: point number less than 3")
         return func_v
-    }
 
     Mx = [0.0]*n
     My = [0.0]*n
     A = [0.0]*(n-2)
     B = [0.0]*(n-2)
-    C( = [0.0]*(n-2)
+    C = [0.0]*(n-2)
     Dx = [0.0]*(n-2)
     Dy = [0.0]*(n-2)
     h = [0.0]*(n-2)
@@ -289,24 +286,24 @@ def cal_fun(point_v)
     
     i =1 
     while i<n-2:
-        double tmp = B[i] - A[i]*C[i-1];
-        C[i] = C[i] / tmp;
-        Dx[i] = (Dx[i] - A[i]*Dx[i-1]) / tmp;
-        Dy[i] = (Dy[i] - A[i]*Dy[i-1]) / tmp;
+        tmp = B[i] - A[i]*C[i-1]
+        C[i] = C[i] / tmp
+        Dx[i] = (Dx[i] - A[i]*Dx[i-1]) / tmp
+        Dy[i] = (Dy[i] - A[i]*Dy[i-1]) / tmp
         i+=1
         
-    Mx[n-2] = Dx[n-3];
-    My[n-2] = Dy[n-3];
+    Mx[n-2] = Dx[n-3]
+    My[n-2] = Dy[n-3]
     i = n-4
     while i>=0:
-        Mx[i+1] = Dx[i] - C[i]*Mx[i+2];
-        My[i+1] = Dy[i] - C[i]*My[i+2];
+        Mx[i+1] = Dx[i] - C[i]*Mx[i+2]
+        My[i+1] = Dy[i] - C[i]*My[i+2]
         i = i-1
 
-    Mx[0] = 0;
-    Mx[n-1] = 0;
-    My[0] = 0;
-    My[n-1] = 0;
+    Mx[0] = 0
+    Mx[n-1] = 0
+    My[0] = 0
+    My[n-1] = 0
 
     for i in range(n-1):
         func_v[i]['a_x'] = point_v[i][0]
@@ -322,11 +319,10 @@ def cal_fun(point_v)
         func_v[i]['h'] = h[i]
     
     return func_v;
-}
             
             
 class PipartiteGraph:
-    def __init__(self,int leftNum, int rightNum):
+    def __init__(self,leftNum, rightNum):
         self.leftNum = leftNum
         self.rightNum = rightNum
         self.leftMatch = [-1]*leftNum
@@ -339,28 +335,28 @@ class PipartiteGraph:
         for i in range(leftNum):
             self.mat.append([0.0]*rightNum)
     
-    def matchDfs(u):
+    def matchDfs(self, u):
         self.leftUsed[u] = True;
         for v in range(self.rightNum):
             if (not self.rightUsed[v]) and  (math.fabs(self.leftWeight[u] + self.rightWeight[v] - self.mat[u][v]) < 1e-2):
                 self.rightUsed[v] = True;
-                if self.rightMatch[v] == -1 or matchDfs(self.rightMatch[v]):
+                if self.rightMatch[v] == -1 or self.matchDfs(self.rightMatch[v]):
                     self.rightMatch[v] = u;
                     self.leftMatch[u] = v;
                     return True
         return False;
     
-    def match():
+    def match(self):
         
         for i in range(self.leftNum):
             self.leftWeight[i] = -1e5;
             for j in range(self.rightNum):
-                if self.leftWeight[i] < self.mat[i][j] 
+                if self.leftWeight[i] < self.mat[i][j]:
                     self.leftWeight[i] = self.mat[i][j]
 
         for u in range(self.leftNum):
-            while (True) 
-                if matchDfs(u):
+            while (True):
+                if self.matchDfs(u):
                     break;
                     
                 d = 1e10;
