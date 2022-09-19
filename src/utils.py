@@ -380,3 +380,50 @@ class PipartiteGraph(object):
 #        tmp = match1
 #        match1 = match2
 #        match2 = tmp
+
+import os                  
+f1_eval = CULaneF1Eval()
+gt_root = '../../../dataset/CULane/'
+pre_root = '../../pt_eval_work/culane_eval_tmp'
+dir1_list = os.listdir(pre_root)
+tp = 0
+fp = 0
+fn = 0
+for dir1 in dir1_list:
+    dir2_list = os.listdir(os.path.join(pre_root,dir1))
+    for dir2 in dir2_list:
+        label_file_list = os.path.join(pre_root, dir1, dir2)
+        for label_file in label_file_list:
+            with open(os.path.join(gt_root, dir1,dir2,label_file)) as f:
+                gt_lines = f.readlines()
+            with open(os.path.join(pre_root, dir1,dir2,label_file)) as f:
+                pre_lines = f.readlines()
+                
+            anno_lanes = []
+            for line in gt_lines:
+                cur_lane = []
+                line_info = line.split()
+                for i in range(len(line_info)/2):
+                    cur_lane.append((int(line_info[i*2]), int(line_info[i*2+1])))
+                anno_lanes.append(cur_lane)
+                
+            detect_lanes = []
+            for line in pre_lines:
+                cur_lane = []
+                line_info = line.split()
+                for i in range(len(line_info)/2):
+                    cur_lane.append((int(line_info[i*2]), int(line_info[i*2+1])))
+                detect_lanes.append(cur_lane)
+                
+            curr_tp, curr_fp, curr_fn = f1_eval.count_im_pair(anno_lanes, detect_lanes)
+            tp += curr_tp
+            fp += curr_fp
+            fn += curr_fn
+            
+precision = tp * 1.0/(tp + fp)
+recall = tp * 1.0/(tp + fn)
+f1 = 2*precision*recall/(precision + recall)
+print(f'f1:{f1}')
+
+
+                
