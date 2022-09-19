@@ -1,6 +1,7 @@
 
 import math
 
+import cv2
 import scipy
 import numpy as np
 from sklearn.linear_model import LinearRegression
@@ -129,7 +130,9 @@ def count_im_pair(const vector<vector<Point2f> > &anno_lanes, const vector<vecto
 		}
 
 
-
+    
+    
+    
 	makeMatch(similarity, anno_match, detect_match);
 
 	
@@ -152,16 +155,28 @@ def count_im_pair(const vector<vector<Point2f> > &anno_lanes, const vector<vecto
 
 
 
-void Counter::makeMatch(const vector<vector<double> > &similarity, vector<int> &match1, vector<int> &match2) {
-	int m = similarity.size();
-	int n = similarity[0].size();
+def makeMatch(const vector<vector<double> > &similarity, vector<int> &match1, vector<int> &match2) {
+	m = len(similarity);
+	n = len(similarity[0])
     pipartiteGraph gra;
-    bool have_exchange = false;
+    have_exchange = false;
     if (m > n) {
         have_exchange = true;
-        swap(m, n);
+        tmp = m
+        m = n
+        n = tmp
     }
+    
+    
+    
     gra.resize(m, n);
+    
+    leftNum = m
+    rightNum = n
+    leftMatch = [0]*leftNum
+    rightMatch = [0]*rightNum
+    
+    
     for (int i = 0; i < gra.leftNum; i++) {
         for (int j = 0; j < gra.rightNum; j++) {
 			if(have_exchange)
@@ -176,50 +191,34 @@ void Counter::makeMatch(const vector<vector<double> > &similarity, vector<int> &
     if (have_exchange) swap(match1, match2);
 }
         
-get_lane_similarity(lane1, lane2):
+def get_lane_similarity(lane1, lane2, lane_width=30):
     
 	if(len(lane1)<2 || len(lane2)<2):
 		return 0;
     
-	im1 = zeros(im_height, im_width, CV_8UC1);
-	im2 = Mat::zeros(im_height, im_width, CV_8UC1);
+	im1 = np.zeros((im_height, im_width)).astype(np.uint8)
+	im2 = np.zeros((im_height, im_width)).astype(np.uint8)
     
-	// draw lines on im1 and im2
-	vector<Point2f> p_interp1;
-	vector<Point2f> p_interp2;
-	if(lane1.size() == 2)
-	{
+	if len(lane1)==2:
 		p_interp1 = lane1;
-	}
-	else
-	{
-		p_interp1 = splineSolver.splineInterpTimes(lane1, 50);
-	}
+	else:
+		p_interp1 = splineInterpTimes(lane1, 50);
 
-	if(lane2.size() == 2)
-	{
+	if len(lane2)==2:
 		p_interp2 = lane2;
-	}
-	else
-	{
-		p_interp2 = splineSolver.splineInterpTimes(lane2, 50);
-	}
+	else:
+		p_interp2 = splineInterpTimes(lane2, 50);
 	
-	Scalar color_white = Scalar(1);
-	for(int n=0; n<p_interp1.size()-1; n++)
-	{
-		line(im1, p_interp1[n], p_interp1[n+1], color_white, lane_width);
-	}
-	for(int n=0; n<p_interp2.size()-1; n++)
-	{
-		line(im2, p_interp2[n], p_interp2[n+1], color_white, lane_width);
-	}
+	for n in range(len(p_interp1)-1):
+		cv2.line(im1, p_interp1[n], p_interp1[n+1], 1, lane_width)
+	for n in range(len(p_interp2)-1):
+		cv2.line(im2, p_interp2[n], p_interp2[n+1], 1, lane_width)
 
-	double sum_1 = cv::sum(im1).val[0];
-	double sum_2 = cv::sum(im2).val[0];
-	double inter_sum = cv::sum(im1.mul(im2)).val[0];
-	double union_sum = sum_1 + sum_2 - inter_sum; 
-	double iou = inter_sum / union_sum;
+	sum_1 = im1.sum()
+	sum_2 = im2.sum()
+	inter_sum = (im1*im2).sum()
+	union_sum = sum_1 + sum_2 - inter_sum; 
+	iou = inter_sum / union_sum;
 	return iou;
 
 vector<Point2f> Spline::splineInterpTimes(tmp_line, times):
@@ -238,22 +237,19 @@ vector<Point2f> Spline::splineInterpTimes(tmp_line, times):
         
     elif len(tmp_line) > 2:
         tmp_func = cal_fun(tmp_line);
-        if (tmp_func.empty()) {
-            cout << "in splineInterpTimes: cal_fun failed" << endl;
+        if len(tmp_func)<=0 {
+            print("in splineInterpTimes: cal_fun failed")
             return res;
         }
-        for(int j = 0; j < tmp_func.size(); j++)
-        {
-            double delta = tmp_func[j].h / times;
-            for(int k = 0; k < times; k++)
-            {
+        for j in range(len(tmp_func)):
+            delta = tmp_func[j]['h'] / times;
+            for k in range(len(times)):
                 double t1 = delta*k;
-                double x1 = tmp_func[j].a_x + tmp_func[j].b_x*t1 + tmp_func[j].c_x*pow(t1,2) + tmp_func[j].d_x*pow(t1,3);
-                double y1 = tmp_func[j].a_y + tmp_func[j].b_y*t1 + tmp_func[j].c_y*pow(t1,2) + tmp_func[j].d_y*pow(t1,3);
-                res.push_back(Point2f(x1, y1));
-            }
-        }
-        res.push_back(tmp_line[tmp_line.size() - 1]);
+                double x1 = tmp_func[j]['a_x'] + tmp_func[j]['b_x']*t1 + tmp_func[j]['c_x']*math.pow(t1,2) + tmp_func[j]['d_x']*math.pow(t1,3)
+                double y1 = tmp_func[j]['a_y'] + tmp_func[j]['b_y']*t1 + tmp_func[j]['c_y']*math.pow(t1,2) + tmp_func[j]['d_y']*math.pow(t1,3)
+                res.append((x1, y1));
+        
+        res.append(tmp_line[len(tmp_line) - 1])
 	else:
 		print("in splineInterpTimes: not enough points")
     return res;
@@ -328,3 +324,63 @@ def cal_fun(point_v)
     
     return func_v;
 }
+            
+            
+class PipartiteGraph:
+    vector<vector<double> > mat;
+    vector<bool> leftUsed, rightUsed;
+    vector<double> leftWeight, rightWeight;
+    vector<int>rightMatch, leftMatch;
+    int leftNum, rightNum;
+    
+    
+    def __init__(self,int leftNum, int rightNum):
+        self.leftNum = leftNum
+        self.rightNum = rightNum
+        self.leftMatch = [-1]*leftNum
+        self.rightMatch = [-1]*rightNum
+        self.leftUsed = [False]*leftNum
+        self.rightUsed = [False]*rightNum
+        self.leftWeight = [0.0]*leftNum
+        self.rightWeight = [0.0]*rightNum
+        self.mat = []
+        for i in range(leftNum):
+            self.mat.append([0.0]*rightNum)
+    
+    
+    def matchDfs(u):
+        self.leftUsed[u] = True;
+        for v in range(self.rightNum):
+            if (not self.rightUsed[v]) and  (math.fabs(self.leftWeight[u] + self.rightWeight[v] - self.mat[u][v]) < 1e-2):
+                self.rightUsed[v] = True;
+                if self.rightMatch[v] == -1 or matchDfs(self.rightMatch[v]):
+                    self.rightMatch[v] = u;
+                    self.leftMatch[u] = v;
+                    return True
+        return False;
+    
+    def match():
+        
+        for i in range(self.leftNum):
+            self.leftWeight[i] = -1e5;
+            for j in range(self.rightNum):
+                if self.leftWeight[i] < self.mat[i][j] 
+                    self.leftWeight[i] = self.mat[i][j]
+
+        for u in range(self.leftNum):
+            while (True) 
+                if matchDfs(u):
+                    break;
+                    
+                double d = 1e10;
+                for (int i = 0; i < leftNum; i++) {
+                    if (leftUsed[i] ) {
+                        for (int j = 0; j < rightNum; j++) {
+                            if (!rightUsed[j]) d = min(d, leftWeight[i] + rightWeight[j] - mat[i][j]);
+                        }
+                    }
+                }
+                if (d == 1e10) return ;
+                for (int i = 0; i < leftNum; i++) if (leftUsed[i]) leftWeight[i] -= d;
+                for (int i = 0; i < rightNum; i++) if (rightUsed[i]) rightWeight[i] += d;
+        
