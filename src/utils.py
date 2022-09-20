@@ -399,7 +399,7 @@ for dir1 in dir1_list:
             fn += curr_fn
             
             count+=1
-            print(f'count:{count}, tp:{tp}, curr_tp:{curr_tp}, curr_fp:{curr_fp}, curr_fn:{curr_fn}')
+            print(f'count:{count}, tp:{tp}, fp:{fp}, fn:{fn}, curr_tp:{curr_tp}, curr_fp:{curr_fp}, curr_fn:{curr_fn}')
             
 precision = tp * 1.0/(tp + fp)
 recall = tp * 1.0/(tp + fn)
