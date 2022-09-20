@@ -330,10 +330,8 @@ class PipartiteGraph(object):
     def matchDfs(self, u):
         self.leftUsed[u] = True
         for v in range(self.rightNum):
-#            print(f'rightUsed[v]:{self.rightUsed[v]}, check num:{math.fabs(self.leftWeight[u] + self.rightWeight[v] - self.mat[u][v])}')
             if (not self.rightUsed[v]) and (math.fabs(self.leftWeight[u] + self.rightWeight[v] - self.mat[u][v]) < 1e-2):
                 self.rightUsed[v] = True
-#                print('check return true')
                 if self.rightMatch[v] == -1 or self.matchDfs(self.rightMatch[v]):
                     self.rightMatch[v] = u
                     self.leftMatch[u] = v
@@ -349,18 +347,16 @@ class PipartiteGraph(object):
                     self.leftWeight[i] = self.mat[i][j]
 
         for u in range(self.leftNum):
-            
+
             loop_count = 0
-            
+
             while (True):
-                
-                if loop_count>10:
+
+                if loop_count > 10:
                     print('Prevent endless circulation in python language.')
-                    break;
-                
-#                print('in while')
+                    break
+
                 if self.matchDfs(u):
-#                    print('break')
                     break
 
                 d = 1e10
@@ -372,7 +368,6 @@ class PipartiteGraph(object):
                                     d, self.leftWeight[i] + self.rightWeight[j] - self.mat[i][j])
 
                 if d == 1e10:
-#                    print('return')
                     return
                 for i in range(self.leftNum):
                     if self.leftUsed[i]:
@@ -383,59 +378,57 @@ class PipartiteGraph(object):
                 loop_count += 1
 
 
-f1_eval = CULaneF1Eval()
-gt_root = '../../../dataset/CULane/'
-pre_root = '../../pt_eval_work/culane_eval_tmp'
-dir1_list = os.listdir(pre_root)
-tp = 0
-fp = 0
-fn = 0
+if __name__ == '__main__':
+    f1_eval = CULaneF1Eval()
+    gt_root = '../../../dataset/CULane/'
+    pre_root = '../../pt_eval_work/culane_eval_tmp'
+    dir1_list = os.listdir(pre_root)
+    tp = 0
+    fp = 0
+    fn = 0
 
-count = 0
-for dir1 in dir1_list:
-    dir2_list = os.listdir(os.path.join(pre_root, dir1))
-    for dir2 in dir2_list:
-        label_file_list = os.listdir(os.path.join(pre_root, dir1, dir2))
-        for label_file in label_file_list:
-            gt_file_path = os.path.join(gt_root, dir1, dir2, label_file)
-            with open(gt_file_path) as f:
-                gt_lines = f.readlines()
-            pre_file_path = os.path.join(pre_root, dir1, dir2, label_file)
-            with open(pre_file_path) as f:
-                pre_lines = f.readlines()
+    count = 0
+    for dir1 in dir1_list:
+        dir2_list = os.listdir(os.path.join(pre_root, dir1))
+        for dir2 in dir2_list:
+            label_file_list = os.listdir(os.path.join(pre_root, dir1, dir2))
+            for label_file in label_file_list:
+                gt_file_path = os.path.join(gt_root, dir1, dir2, label_file)
+                with open(gt_file_path) as f:
+                    gt_lines = f.readlines()
+                pre_file_path = os.path.join(pre_root, dir1, dir2, label_file)
+                with open(pre_file_path) as f:
+                    pre_lines = f.readlines()
 
-            anno_lanes = []
-            for line in gt_lines:
-                cur_lane = []
-                line_info = line.split()
-                for i in range(int(len(line_info) / 2)):
-                    cur_lane.append(
-                        (float(line_info[i * 2]), float(line_info[i * 2 + 1])))
-                anno_lanes.append(cur_lane)
+                anno_lanes = []
+                for line in gt_lines:
+                    cur_lane = []
+                    line_info = line.split()
+                    for i in range(int(len(line_info) / 2)):
+                        cur_lane.append(
+                            (float(line_info[i * 2]), float(line_info[i * 2 + 1])))
+                    anno_lanes.append(cur_lane)
 
-            detect_lanes = []
-            for line in pre_lines:
-                cur_lane = []
-                line_info = line.split()
-                for i in range(int(len(line_info) / 2)):
-                    cur_lane.append(
-                        (float(line_info[i * 2]), float(line_info[i * 2 + 1])))
-                detect_lanes.append(cur_lane)
+                detect_lanes = []
+                for line in pre_lines:
+                    cur_lane = []
+                    line_info = line.split()
+                    for i in range(int(len(line_info) / 2)):
+                        cur_lane.append(
+                            (float(line_info[i * 2]), float(line_info[i * 2 + 1])))
+                    detect_lanes.append(cur_lane)
 
-#            print(f'gt_file_path:{gt_file_path}')
-#            print(f'pre_file_path:{pre_file_path}')
+                curr_tp, curr_fp, curr_fn = f1_eval.count_im_pair(
+                    anno_lanes, detect_lanes)
+                tp += curr_tp
+                fp += curr_fp
+                fn += curr_fn
 
-            curr_tp, curr_fp, curr_fn = f1_eval.count_im_pair(
-                anno_lanes, detect_lanes)
-            tp += curr_tp
-            fp += curr_fp
-            fn += curr_fn
+                count += 1
+                print(
+                    f'count:{count}, tp:{tp}, fp:{fp}, fn:{fn}, curr_tp:{curr_tp}, curr_fp:{curr_fp}, curr_fn:{curr_fn}')
 
-            count += 1
-            print(
-                f'count:{count}, tp:{tp}, fp:{fp}, fn:{fn}, curr_tp:{curr_tp}, curr_fp:{curr_fp}, curr_fn:{curr_fn}')
-
-precision = tp * 1.0 / (tp + fp)
-recall = tp * 1.0 / (tp + fn)
-f1 = 2 * precision * recall / (precision + recall)
-print(f'f1:{f1}')
+    precision = tp * 1.0 / (tp + fp)
+    recall = tp * 1.0 / (tp + fn)
+    f1 = 2 * precision * recall / (precision + recall)
+    print(f'f1:{f1}')

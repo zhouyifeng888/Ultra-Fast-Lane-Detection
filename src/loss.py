@@ -19,7 +19,7 @@ class SoftmaxFocalLoss(nn.Cell):
 #        self.log_softmax = nn.LogSoftmax(axis=1)
         self.softmax2 = P.Softmax(axis=1)
         self.log = P.Log()
-        
+
         self.griding_num = cfg.griding_num
         self.weight = Tensor(
             np.ones((self.griding_num + 1,))).astype(np.float32)
@@ -30,10 +30,10 @@ class SoftmaxFocalLoss(nn.Cell):
     def construct(self, logits, labels):
         scores = self.softmax(logits)
         factor = self.pow(1.0 - scores, self.gamma)
-        
+
         logits2 = self.softmax2(logits)
         log_score = self.log(logits2)
-        
+
         log_score = factor * log_score
         log_score = self.transpose(log_score, (0, 2, 3, 1))
         log_score = self.reshape(log_score, (-1, self.griding_num + 1))
@@ -86,6 +86,7 @@ class ParsingRelationDis(nn.Cell):
         loss = loss / (len(diff_list1) - 1)
         return loss
 
+
 class FocalLoss(nn.Cell):
     def __init__(self, weight=None, gamma=2.0, reduction='mean'):
         super(FocalLoss, self).__init__()
@@ -94,13 +95,15 @@ class FocalLoss(nn.Cell):
         self.on_value = Tensor(1.0, ms.float32)
         self.off_value = Tensor(0.0, ms.float32)
         self.softmax = P.Softmax(axis=1)
-        self.focal_loss = nn.FocalLoss(weight=None, gamma=2.0, reduction='mean')
+        self.focal_loss = nn.FocalLoss(
+            weight=None, gamma=2.0, reduction='mean')
 
     def construct(self, cls_out, cls_label):
         cls_out = self.softmax(cls_out)
         cls_label = self.onehot(cls_label, self.depth,
                                 self.on_value, self.off_value)
         return self.focal_loss(cls_out, cls_label)
+
 
 class TrainLoss(nn.Cell):
     def __init__(self, gamma=2, data_type=ms.float16):
@@ -122,9 +125,13 @@ class TrainLoss(nn.Cell):
             griding_num=cfg.griding_num, anchor_nums=len(cfg.row_anchor), data_type=data_type)
 
     def construct(self, cls_out, seg_out, cls_label, seg_label):
-        total_loss = self.w1 * self.loss1(cls_out, cls_label) + \
-            self.w2 * self.loss2(cls_out) + \
-            self.w3 * self.loss3(self.reshape(self.transpose(seg_out, (0, 2, 3, 1)), (-1, self.num_lanes + 1)), self.reshape(seg_label, (-1,)))
+        total_loss = self.w1 * self.loss1(cls_out, cls_label)
+        if self.w2 > 0:
+            total_loss += self.w2 * self.loss2(cls_out)
+        total_loss += self.w3 * self.loss3(self.reshape(self.transpose(
+            seg_out, (0, 2, 3, 1)), (-1, self.num_lanes + 1)), self.reshape(seg_label, (-1,)))
+        if self.w4 > 0:
+            total_loss += self.w4 * self.loss4(cls_out)
         return total_loss
 
 
