@@ -41,24 +41,49 @@ class LaneTrainDataset:
 
 
 class LaneTestDataset:
-    def __init__(self, root_path, test_label_file):
+    def __init__(self, dataset, root_path, test_label_file):
 
+        self.dataset = dataset
         self.root_path = root_path
 
         with open(test_label_file, 'r') as f:
             self.list = f.readlines()
 
     def __getitem__(self, index):
-        json_line = self.list[index]
-        json_data = json.loads(json_line)
-        raw_file = json_data['raw_file']
-        if raw_file[0] == '/':
-            raw_file = raw_file[1:]
-
-        img_path = os.path.join(self.root_path, raw_file)
-        img = Image.open(img_path)
-
-        return img, index
+        if self.dataset=='Tusimple':
+            json_line = self.list[index]
+            json_data = json.loads(json_line)
+            raw_file = json_data['raw_file']
+            if raw_file[0] == '/':
+                raw_file = raw_file[1:]
+    
+            img_path = os.path.join(self.root_path, raw_file)
+            img = Image.open(img_path)
+    
+            return img, index
+        elif self.dataset=='CULane':
+            img_file = self.list[index]
+            if img_file[0] == '/':
+                img_file = img_file[1:]
+            label_file = img_file.replace('.jpg', '.lines.txt')
+            
+            img_path = os.path.join(self.root_path, img_file)
+            img = Image.open(img_path)
+            
+            label_path = os.path.join(self.root_path, label_file)
+            with open(label_path) as f:
+                label_lines= f.readlines()
+                
+            anno_lanes = []
+            for line in label_lines:
+                cur_lane = []
+                line_info = line.split()
+                for i in range(int(len(line_info) / 2)):
+                    cur_lane.append(
+                        (float(line_info[i * 2]), float(line_info[i * 2 + 1])))
+                anno_lanes.append(cur_lane)
+            
+            return img, np.array(anno_lanes)
 
     def __len__(self):
         return len(self.list)
@@ -242,11 +267,15 @@ def create_lane_test_dataset(dataset, data_root_path, test_label_file, batch_siz
 
     ds.config.set_num_parallel_workers(num_workers)
 
-    lane_dataset = LaneTestDataset(
+    lane_dataset = LaneTestDataset(dataset, 
         data_root_path, os.path.join(data_root_path, test_label_file))
-
-    dataset = ds.GeneratorDataset(source=lane_dataset, column_names=['image', 'index'],
-                                  shuffle=False, num_shards=rank_size, shard_id=rank_id)
+    
+    if dataset=='Tusimple':
+        dataset = ds.GeneratorDataset(source=lane_dataset, column_names=['image', 'index'],
+                                      shuffle=False, num_shards=rank_size, shard_id=rank_id)
+    elif dataset=='CULane':
+        dataset = ds.GeneratorDataset(source=lane_dataset, column_names=['image', 'label'],
+                                      shuffle=False, num_shards=rank_size, shard_id=rank_id)
 
     transform_img = [
         vision.Resize((288, 800)),
