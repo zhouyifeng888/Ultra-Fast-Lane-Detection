@@ -10,7 +10,7 @@ train_url : '../output'
 # TRAIN
 device_target : 'Ascend'
 amp_level : 'O0'
-epoch : 50
+epochs : 50
 batch_size : 32
 optimizer : 'SGD'  #['SGD','Adam']
 lr : 0.1

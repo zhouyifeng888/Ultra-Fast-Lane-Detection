@@ -11,7 +11,7 @@ from mindspore.train.serialization import load_checkpoint, load_param_into_net
 
 from src.resnet import get_resnet
 from src.network import ParsingNet
-from src.utils import print_trainable_params_count, TusimpleAccEval
+from src.utils import print_trainable_params_count, TusimpleAccEval, CULaneF1Eval
 from src.dataset import create_lane_test_dataset
 from src.config import config as cfg
 
