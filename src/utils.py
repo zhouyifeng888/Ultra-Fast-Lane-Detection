@@ -128,8 +128,6 @@ class CULaneF1Eval(object):
                 curr_detect_lane = detect_lanes[j]
                 similarity[i][j] = self.get_lane_similarity(curr_anno_lane, curr_detect_lane)
         
-        print(f'similarity:{similarity}')
-        
         m = len(similarity)
         n = len(similarity[0])
         have_exchange = False
@@ -157,16 +155,8 @@ class CULaneF1Eval(object):
             match2 = tmp
         anno_match = match1
         
-        print(f'similarity:{similarity}')
-        print(f'anno_match:{anno_match}')
-    
-    	
         curr_tp = 0
         for i in range(len(anno_lanes)):
-#            if anno_match[i]>=0:
-#                print(f'========iou:{similarity[i][anno_match[i]]}')
-#            else:
-#                print(f'iou:{0}')
             if anno_match[i]>=0 and similarity[i][anno_match[i]] > self.sim_threshold:
                 curr_tp+=1
             else:
@@ -179,15 +169,11 @@ class CULaneF1Eval(object):
             
     def get_lane_similarity(self, lane1, lane2):
         
-#        print(f'lane1: {lane1[0], lane1[1], lane1[2], len(lane1)}')
-#        print(f'lane2: {lane2[0], lane2[1], lane2[2], len(lane2)}')
-        
         if len(lane1)<2 or len(lane2)<2:
             return 0
         
         im1 = np.zeros((self.im_height, self.im_width)).astype(np.uint8)
         im2 = np.zeros((self.im_height, self.im_width)).astype(np.uint8)
-#        print(f'im1.sum():{im1.sum()}')
         
         if len(lane1)==2:
             p_interp1 = lane1
@@ -199,28 +185,17 @@ class CULaneF1Eval(object):
         else:
             p_interp2 = self.splineInterpTimes(lane2, 50)
     	
-#        print(f'p_interp1: {p_interp1[0], p_interp1[1], p_interp1[2], len(p_interp1)}')
-#        print(f'p_interp2: {p_interp2[0], p_interp2[1], p_interp2[2], len(p_interp2)}')
-#        print(f'point {(int(p_interp1[0][0]), int(p_interp1[0][1])), (int(p_interp1[1][0]), int(p_interp1[1][1]))}')
         
         for n in range(len(p_interp1)-1):
             cv2.line(im1, (int(p_interp1[n][0]), int(p_interp1[n][1])), (int(p_interp1[n+1][0]), int(p_interp1[n+1][1])), 1, self.lane_width)
-#            img_sum = im1.sum()
-#            print(f'img_sum:{img_sum}')
         for n in range(len(p_interp2)-1):
             cv2.line(im2, (int(p_interp2[n][0]), int(p_interp2[n][1])), (int(p_interp2[n+1][0]), int(p_interp2[n+1][1])), 1, self.lane_width)
         
-#        print(f'p_interp1:{p_interp1}')
-            
-#        print(f'self.lane_width:{self.lane_width}')
-                
         sum_1 = im1.sum()
-#        print(f'sum_1:{sum_1}')
         sum_2 = im2.sum()
         inter_sum = (im1*im2).sum()
         union_sum = sum_1 + sum_2 - inter_sum
         iou = inter_sum / union_sum
-#        print(f'inner iou:{iou}')
         return iou
     
     def splineInterpTimes(self, tmp_line, times):
@@ -239,7 +214,6 @@ class CULaneF1Eval(object):
             
         elif len(tmp_line) > 2:
             tmp_func = self.cal_fun(tmp_line)
-#            print(f"tmp_func[0]['a_x']:{tmp_func[0]['a_x']}")
             if len(tmp_func)<=0:
                 print("in splineInterpTimes: cal_fun failed")
                 return res
@@ -250,22 +224,14 @@ class CULaneF1Eval(object):
                     x1 = tmp_func[j]['a_x'] + tmp_func[j]['b_x']*t1 + tmp_func[j]['c_x']*math.pow(t1,2) + tmp_func[j]['d_x']*math.pow(t1,3)
                     y1 = tmp_func[j]['a_y'] + tmp_func[j]['b_y']*t1 + tmp_func[j]['c_y']*math.pow(t1,2) + tmp_func[j]['d_y']*math.pow(t1,3)
                     res.append((x1, y1))
-#                    print(f'(x1, y1):{(x1, y1)}')
-#                    if len(res)<=1:
-#                        print(f"tmp_func[j]['a_x']:{tmp_func[j]['a_x']}")
             
             res.append(tmp_line[len(tmp_line) - 1])
-#            print(f'res[0]:{res[51]}')
         else:
             print("in splineInterpTimes: not enough points")
         return res
     
     def cal_fun(self, point_v):
-#        print(f"point_v:{point_v}")
-        
-        
         n = len(point_v)
-#        func_v = [{}]*(n-1)
         
         func_v = []
         for _ in range(n-1):
@@ -320,35 +286,19 @@ class CULaneF1Eval(object):
         My[0] = 0
         My[n-1] = 0
         
-#        print(f'point_v[0]:{point_v[0]}')
-#        print(f'point_v[1]:{point_v[1]}')
         
         for i in range(n-1):
-#            print(f'i:{i}')
             func_v[i]['a_x'] = point_v[i][0]
-#            print(f"func_v[i]['a_x']:{func_v[i]['a_x']}")
             func_v[i]['b_x'] = (point_v[i+1][0] - point_v[i][0])/h[i] - (2*h[i]*Mx[i] + h[i]*Mx[i+1]) / 6
-#            print(f"func_v[i]['b_x']:{func_v[i]['b_x']}")
             func_v[i]['c_x'] = Mx[i]/2
-#            print(f"func_v[i]['c_x']:{func_v[i]['c_x']}")
             func_v[i]['d_x'] = (Mx[i+1] - Mx[i]) / (6*h[i])
-#            print(f"func_v[i]['d_x']:{func_v[i]['d_x']}")
     
             func_v[i]['a_y'] = point_v[i][1]
-#            print(f"func_v[i]['a_y'] :{func_v[i]['a_y'] }")
             func_v[i]['b_y'] = (point_v[i+1][1] - point_v[i][1])/h[i] - (2*h[i]*My[i] + h[i]*My[i+1]) / 6
-#            print(f"func_v[i]['b_y'] :{func_v[i]['b_y'] }")
             func_v[i]['c_y'] = My[i]/2
-#            print(f"func_v[i]['c_y']:{func_v[i]['c_y']}")
             func_v[i]['d_y'] = (My[i+1] - My[i]) / (6*h[i])
-#            print(f"func_v[i]['d_y']:{func_v[i]['d_y']}")
     
             func_v[i]['h'] = h[i]
-#            print(f"h[i]:{h[i]}")
-#            print(f"func_v[0]['a_x']:{func_v[0]['a_x']}")
-        
-#        print(f'func_v:{func_v}')
-#        print(f"func_v[0]['a_x']:{func_v[0]['a_x']}")
         
         return func_v
             
