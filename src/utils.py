@@ -125,14 +125,14 @@ class CULaneF1Eval(object):
         for i in range(len(anno_lanes)):
             curr_anno_lane = anno_lanes[i]
             for j in range(len(detect_lanes)):
-                curr_detect_lane = detect_lanes[j];
-                similarity[i][j] = self.get_lane_similarity(curr_anno_lane, curr_detect_lane);
+                curr_detect_lane = detect_lanes[j]
+                similarity[i][j] = self.get_lane_similarity(curr_anno_lane, curr_detect_lane)
         
-        m = len(similarity);
+        m = len(similarity)
         n = len(similarity[0])
-        have_exchange = False;
+        have_exchange = False
         if m > n:
-            have_exchange = True;
+            have_exchange = True
             tmp = m
             m = n
             n = tmp
@@ -142,13 +142,13 @@ class CULaneF1Eval(object):
         for i in range(gra.leftNum):
             for j in range(gra.rightNum):
                 if have_exchange:
-                    gra.mat[i][j] = similarity[j][i];
+                    gra.mat[i][j] = similarity[j][i]
                 else:
-                    gra.mat[i][j] = similarity[i][j];
+                    gra.mat[i][j] = similarity[i][j]
             
-        gra.match();
-        match1 = gra.leftMatch;
-        match2 = gra.rightMatch;
+        gra.match()
+        match1 = gra.leftMatch
+        match2 = gra.rightMatch
         if have_exchange:
             tmp = match1
             match1 = match2
@@ -156,7 +156,7 @@ class CULaneF1Eval(object):
         anno_match = match1
     
     	
-        curr_tp = 0;
+        curr_tp = 0
         for i in range(len(anno_lanes)):
             if anno_match[i]>=0:
                 print(f'========iou:{similarity[i][anno_match[i]]}')
@@ -175,20 +175,20 @@ class CULaneF1Eval(object):
     def get_lane_similarity(self, lane1, lane2):
         
         if len(lane1)<2 or len(lane2)<2:
-            return 0;
+            return 0
         
         im1 = np.zeros((self.im_height, self.im_width)).astype(np.uint8)
         im2 = np.zeros((self.im_height, self.im_width)).astype(np.uint8)
         
         if len(lane1)==2:
-            p_interp1 = lane1;
+            p_interp1 = lane1
         else:
-            p_interp1 = self.splineInterpTimes(lane1, 50);
+            p_interp1 = self.splineInterpTimes(lane1, 50)
     
         if len(lane2)==2:
-            p_interp2 = lane2;
+            p_interp2 = lane2
         else:
-            p_interp2 = self.splineInterpTimes(lane2, 50);
+            p_interp2 = self.splineInterpTimes(lane2, 50)
     	
         for n in range(len(p_interp1)-1):
             cv2.line(im1, (int(p_interp1[n][0]), int(p_interp1[n][1])), (int(p_interp1[n+1][0]), int(p_interp1[n+1][1])), 1, self.lane_width)
@@ -199,12 +199,12 @@ class CULaneF1Eval(object):
         sum_2 = im2.sum()
         inter_sum = (im1*im2).sum()
         union_sum = sum_1 + sum_2 - inter_sum
-        iou = inter_sum / union_sum;
+        iou = inter_sum / union_sum
         print(f'inner iou:{iou}')
-        return iou;
+        return iou
     
     def splineInterpTimes(self, tmp_line, times):
-        res= [];
+        res= []
     
         if len(tmp_line) == 2:
             x1 = tmp_line[0][0]
@@ -215,25 +215,25 @@ class CULaneF1Eval(object):
             for k in range(times):
                 xi =  x1 + float((x2 - x1) * k) / times
                 yi =  y1 + float((y2 - y1) * k) / times
-                res.append((xi, yi));
+                res.append((xi, yi))
             
         elif len(tmp_line) > 2:
-            tmp_func = self.cal_fun(tmp_line);
+            tmp_func = self.cal_fun(tmp_line)
             if len(tmp_func)<=0:
                 print("in splineInterpTimes: cal_fun failed")
-                return res;
+                return res
             for j in range(len(tmp_func)):
-                delta = tmp_func[j]['h'] / times;
+                delta = tmp_func[j]['h'] / times
                 for k in range(times):
-                    t1 = delta*k;
+                    t1 = delta*k
                     x1 = tmp_func[j]['a_x'] + tmp_func[j]['b_x']*t1 + tmp_func[j]['c_x']*math.pow(t1,2) + tmp_func[j]['d_x']*math.pow(t1,3)
                     y1 = tmp_func[j]['a_y'] + tmp_func[j]['b_y']*t1 + tmp_func[j]['c_y']*math.pow(t1,2) + tmp_func[j]['d_y']*math.pow(t1,3)
-                    res.append((x1, y1));
+                    res.append((x1, y1))
             
             res.append(tmp_line[len(tmp_line) - 1])
         else:
             print("in splineInterpTimes: not enough points")
-        return res;
+        return res
     
     def cal_fun(self, point_v):
         n = len(point_v)
@@ -253,19 +253,19 @@ class CULaneF1Eval(object):
         h = [0.0]*(n-1)
     
         for i in range(n-1):
-            h[i] = math.sqrt(math.pow(point_v[i+1][0] - point_v[i][0], 2) + math.pow(point_v[i+1][1] - point_v[i][1], 2));
+            h[i] = math.sqrt(math.pow(point_v[i+1][0] - point_v[i][0], 2) + math.pow(point_v[i+1][1] - point_v[i][1], 2))
     
         for i in range(n-2):
-            A[i] = h[i];
-            B[i] = 2*(h[i]+h[i+1]);
-            C[i] = h[i+1];
+            A[i] = h[i]
+            B[i] = 2*(h[i]+h[i+1])
+            C[i] = h[i+1]
     
-            Dx[i] =  6*( (point_v[i+2][0] - point_v[i+1][0])/h[i+1] - (point_v[i+1][0] - point_v[i][0])/h[i] );
-            Dy[i] =  6*( (point_v[i+2][1] - point_v[i+1][1])/h[i+1] - (point_v[i+1][1] - point_v[i][1])/h[i] );
+            Dx[i] =  6*( (point_v[i+2][0] - point_v[i+1][0])/h[i+1] - (point_v[i+1][0] - point_v[i][0])/h[i] )
+            Dy[i] =  6*( (point_v[i+2][1] - point_v[i+1][1])/h[i+1] - (point_v[i+1][1] - point_v[i][1])/h[i] )
     
-        C[0] = C[0] / B[0];
-        Dx[0] = Dx[0] / B[0];
-        Dy[0] = Dy[0] / B[0];
+        C[0] = C[0] / B[0]
+        Dx[0] = Dx[0] / B[0]
+        Dy[0] = Dy[0] / B[0]
         
         i =1 
         while i<n-2:
@@ -297,11 +297,11 @@ class CULaneF1Eval(object):
             func_v[i]['a_y'] = point_v[i][1]
             func_v[i]['b_y'] = (point_v[i+1][1] - point_v[i][1])/h[i] - (2*h[i]*My[i] + h[i]*My[i+1]) / 6
             func_v[i]['c_y'] = My[i]/2
-            func_v[i]['d_y'] = (My[i+1] - My[i]) / (6*h[i]);
+            func_v[i]['d_y'] = (My[i+1] - My[i]) / (6*h[i])
     
             func_v[i]['h'] = h[i]
         
-        return func_v;
+        return func_v
             
             
 class PipartiteGraph(object):
@@ -319,20 +319,20 @@ class PipartiteGraph(object):
             self.mat.append([0.0]*rightNum)
     
     def matchDfs(self, u):
-        self.leftUsed[u] = True;
+        self.leftUsed[u] = True
         for v in range(self.rightNum):
             if (not self.rightUsed[v]) and  (math.fabs(self.leftWeight[u] + self.rightWeight[v] - self.mat[u][v]) < 1e-2):
-                self.rightUsed[v] = True;
+                self.rightUsed[v] = True
                 if self.rightMatch[v] == -1 or self.matchDfs(self.rightMatch[v]):
-                    self.rightMatch[v] = u;
-                    self.leftMatch[u] = v;
+                    self.rightMatch[v] = u
+                    self.leftMatch[u] = v
                     return True
-        return False;
+        return False
     
     def match(self):
         
         for i in range(self.leftNum):
-            self.leftWeight[i] = -1e5;
+            self.leftWeight[i] = -1e5
             for j in range(self.rightNum):
                 if self.leftWeight[i] < self.mat[i][j]:
                     self.leftWeight[i] = self.mat[i][j]
@@ -340,52 +340,24 @@ class PipartiteGraph(object):
         for u in range(self.leftNum):
             while (True):
                 if self.matchDfs(u):
-                    break;
+                    break
                     
-                d = 1e10;
+                d = 1e10
                 for i in range(self.leftNum):
                     if self.leftUsed[i]:
                         for j in range(self.rightNum):
                             if not self.rightUsed[j]:
-                                d = min(d, self.leftWeight[i] + self.rightWeight[j] - self.mat[i][j]);
+                                d = min(d, self.leftWeight[i] + self.rightWeight[j] - self.mat[i][j])
                         
                 if d == 1e10:
                     return
                 for i in range(self.leftNum):
                     if self.leftUsed[i]:
-                        self.leftWeight[i] -= d;
+                        self.leftWeight[i] -= d
                 for i in range(self.rightNum):
                     if self.rightUsed[i]:
-                        self.rightWeight[i] += d;
+                        self.rightWeight[i] += d
         
-#def makeMatch(const vector<vector<double> > &similarity, vector<int> &match1, vector<int> &match2):
-#	m = len(similarity);
-#	n = len(similarity[0])
-#    have_exchange = false;
-#    if (m > n) {
-#        have_exchange = true;
-#        tmp = m
-#        m = n
-#        n = tmp
-#    }
-#    
-#    gra = PipartiteGraph(m , n)
-#    
-#    for i in range(gra.leftNum):
-#        for j in range(gra.rightNum):
-#			if(have_exchange)
-#				gra.mat[i][j] = similarity[j][i];
-#			else
-#				gra.mat[i][j] = similarity[i][j];
-#        
-#    gra.match();
-#    match1 = gra.leftMatch;
-#    match2 = gra.rightMatch;
-#    if have_exchange:
-#        tmp = match1
-#        match1 = match2
-#        match2 = tmp
-
 import os                  
 f1_eval = CULaneF1Eval()
 gt_root = '../../../dataset/CULane/'
@@ -428,7 +400,7 @@ for dir1 in dir1_list:
             fn += curr_fn
             
             count+=1
-#            print(f'count:{count}, curr_tp:{curr_tp}, curr_fp:{curr_fp}, curr_fn:{curr_fn}')
+            print(f'count:{count}, tp:{tp}, curr_tp:{curr_tp}, curr_fp:{curr_fp}, curr_fn:{curr_fn}')
             
 precision = tp * 1.0/(tp + fp)
 recall = tp * 1.0/(tp + fn)
