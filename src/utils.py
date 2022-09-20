@@ -119,7 +119,7 @@ class CULaneF1Eval(object):
         similarity = []
         for _ in range(len(anno_lanes)):
             similarity.append(np.zeros(len(detect_lanes)))
-        similarity = np.array(similarity).astype(np.int64)
+        similarity = np.array(similarity).astype(np.float64)
         
         
         for i in range(len(anno_lanes)):
@@ -127,6 +127,8 @@ class CULaneF1Eval(object):
             for j in range(len(detect_lanes)):
                 curr_detect_lane = detect_lanes[j]
                 similarity[i][j] = self.get_lane_similarity(curr_anno_lane, curr_detect_lane)
+        
+        print(f'similarity:{similarity}')
         
         m = len(similarity)
         n = len(similarity[0])
@@ -154,6 +156,9 @@ class CULaneF1Eval(object):
             match1 = match2
             match2 = tmp
         anno_match = match1
+        
+        print(f'similarity:{similarity}')
+        print(f'anno_match:{anno_match}')
     
     	
         curr_tp = 0
@@ -210,12 +215,12 @@ class CULaneF1Eval(object):
 #        print(f'self.lane_width:{self.lane_width}')
                 
         sum_1 = im1.sum()
-        print(f'sum_1:{sum_1}')
+#        print(f'sum_1:{sum_1}')
         sum_2 = im2.sum()
         inter_sum = (im1*im2).sum()
         union_sum = sum_1 + sum_2 - inter_sum
         iou = inter_sum / union_sum
-        print(f'inner iou:{iou}')
+#        print(f'inner iou:{iou}')
         return iou
     
     def splineInterpTimes(self, tmp_line, times):
