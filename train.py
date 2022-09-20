@@ -197,8 +197,8 @@ def main():
     train_dataset = create_lane_train_dataset(train_root, train_gt_list, cfg.batch_size,
                                               rank_size=device_num, rank_id=device_id)
     if dataset == 'Tusimple':
-        val_dataset = create_lane_test_dataset(
-            os.path.join(local_data_path, 'test_set'), 'test_label.json', 1)
+        val_dataset = create_lane_test_dataset(dataset,
+                                               os.path.join(local_data_path, 'test_set'), 'test_label.json', 1)
 
         with open(os.path.join(local_data_path, 'test_set', 'test_label.json')) as f:
             label_lines = f.readlines()

@@ -237,7 +237,7 @@ def create_lane_train_dataset(data_root_path, data_list_path, batch_size,
     return dataset
 
 
-def create_lane_test_dataset(data_root_path, test_label_file, batch_size,
+def create_lane_test_dataset(dataset, data_root_path, test_label_file, batch_size,
                              num_workers=8, rank_size=1, rank_id=0):
 
     ds.config.set_num_parallel_workers(num_workers)
