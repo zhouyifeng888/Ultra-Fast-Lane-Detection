@@ -276,6 +276,22 @@ def main():
 
     # profiler.analyse()
 
+    if dataset == 'CULane':
+        if cfg.train_url.startswith('s3://') or cfg.train_url.startswith('obs://'):
+            output_path = '/cache/output'
+            obs_output_path = cfg.train_url
+        else:
+            output_path = cfg.train_url
+            obs_output_path = None
+
+        file_name = 'model_culane.ckpt'
+        ckpt_file = os.path.join(output_path, file_name)
+        save_checkpoint(net, ckpt_file)
+        if obs_output_path is not None:
+            file.copy_parallel(ckpt_file, os.path.join(
+                obs_output_path, file_name))
+        print('==============save checkpoint finished===================')
+
 
 if __name__ == '__main__':
     start_time = time.time()
