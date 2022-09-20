@@ -284,7 +284,7 @@ def main():
             output_path = cfg.train_url
             obs_output_path = None
 
-        file_name = 'model_culane.ckpt'
+        file_name = f'model_culane_{device_id}.ckpt'
         ckpt_file = os.path.join(output_path, file_name)
         save_checkpoint(net, ckpt_file)
         if obs_output_path is not None:
