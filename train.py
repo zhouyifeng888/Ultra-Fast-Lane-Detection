@@ -79,14 +79,14 @@ class Val_Callback(Callback):
                 index = batch_index[i]
                 gt_lanes = np.array(self.label_info_list[index]['lanes'])
                 y_samples = np.array(self.label_info_list[index]['h_samples'])
-                
+
                 pred_one_img_lanes = self.accEval.generate_tusimple_lines(
                     results[i], imgs[0, 0].shape, cfg.griding_num)
                 one_img_acc = self.accEval.bench(pred_one_img_lanes,
                                                  gt_lanes, y_samples)
                 acc += one_img_acc
                 total_count += 1
-                if total_count%100==0:
+                if total_count % 100 == 0:
                     print(f'Eval count:{total_count}')
         acc = acc / total_count
         end = time.time()
@@ -186,18 +186,26 @@ def main():
                 with open(copy_result_file) as f:
                     local_data_path = f.readline()
 
-    train_dataset = create_lane_train_dataset(os.path.join(local_data_path, 'train_set'), 'train_gt.txt', cfg.batch_size,
+    dataset = cfg.dataset
+    if dataset == 'Tusimple':
+        train_root = os.path.join(local_data_path, 'train_set')
+        train_gt_list = 'train_gt.txt'
+    elif dataset == 'CULane':
+        train_root = local_data_path
+        train_gt_list = 'list/train_gt.txt'
+
+    train_dataset = create_lane_train_dataset(train_root, train_gt_list, cfg.batch_size,
                                               rank_size=device_num, rank_id=device_id)
-    val_dataset = create_lane_test_dataset(
-        os.path.join(local_data_path, 'test_set'), 'test_label.json', 1)
-    
-    with open(os.path.join(local_data_path, 'test_set', 'test_label.json')) as f:
-        label_lines = f.readlines()
-    label_info_list = []
-    for i in range(len(label_lines)):
-        json_data = json.loads(label_lines[i])
-        label_info_list.append(json_data)
-    
+    if dataset == 'Tusimple':
+        val_dataset = create_lane_test_dataset(
+            os.path.join(local_data_path, 'test_set'), 'test_label.json', 1)
+
+        with open(os.path.join(local_data_path, 'test_set', 'test_label.json')) as f:
+            label_lines = f.readlines()
+        label_info_list = []
+        for i in range(len(label_lines)):
+            json_data = json.loads(label_lines[i])
+            label_info_list.append(json_data)
 
     batches_per_epoch = train_dataset.get_dataset_size()
     print(f'batches_per_epoch:{batches_per_epoch}')
@@ -240,8 +248,7 @@ def main():
             nesterov=True,
             loss_scale=1024.0 if cfg.amp_level == 'O3' else 1.0
         )
-    
-    
+
     loss_scale_manager = FixedLossScaleManager(
         1024.0, drop_overflow_update=False)
     if cfg.amp_level == 'O3':
@@ -253,19 +260,21 @@ def main():
 
     loss_cb = LossMonitor(per_print_times=100)
     time_cb = TimeMonitor(data_size=batches_per_epoch)
-    val_cb = Val_Callback(
-        model, val_dataset, device_id, label_info_list, cfg.train_url)
+    val_cb = None
+    if dataset == 'Tusimple':
+        val_cb = Val_Callback(
+            model, val_dataset, device_id, label_info_list, cfg.train_url)
 
-    if device_id == 0:
-        callbacks = [time_cb, loss_cb, val_cb]
-    else:
-        callbacks = [val_cb]
+    callbacks = [time_cb, loss_cb]
+
+    if val_cb is not None:
+        callbacks += [val_cb]
 
     cfg.dataset_sink_mode = True if cfg.dataset_sink_mode == 'True' else False
     model.train(cfg.epochs - cfg.start_epochs, train_dataset,
                 callbacks=callbacks, dataset_sink_mode=cfg.dataset_sink_mode)
 
-    #profiler.analyse()
+    # profiler.analyse()
 
 
 if __name__ == '__main__':
