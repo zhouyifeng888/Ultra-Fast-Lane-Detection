@@ -31,12 +31,12 @@ def main():
                         device_target=cfg.device_target)
     context.set_context(device_id=device_id)
 #    context.set_context(enable_graph_kernel=True)
-    
+
     backbone = get_resnet(resnet_type=cfg.backbone)
     net = ParsingNet(cfg.backbone, backbone, cls_dim=(
         cfg.griding_num + 1, len(cfg.row_anchor), cfg.num_lanes), use_aux=False)
     print_trainable_params_count(net)
-    
+
     if cfg.resume.startswith('s3://') or cfg.resume.startswith('obs://'):
         local_resume = os.path.join(
             cfg.local_data_root, f'resume_{device_id}.ckpt')
@@ -47,7 +47,7 @@ def main():
         ckpt = load_checkpoint(cfg.resume)
         load_param_into_net(net, ckpt)
         print('load ckpt success')
-    
+
     copy_result_file = os.path.join(
         cfg.local_data_root, 'local_data_path.txt')
     if device_num == 1 or device_id == 0:
@@ -71,9 +71,9 @@ def main():
             if os.path.exists(copy_result_file):
                 with open(copy_result_file) as f:
                     local_data_path = f.readline()
-                    
-    dataset = cfg.dataset            
-    
+
+    dataset = cfg.dataset
+
     if dataset == 'Tusimple':
         with open(os.path.join(local_data_path, 'test_set', 'test_label.json')) as f:
             label_lines = f.readlines()
@@ -81,11 +81,11 @@ def main():
         for i in range(len(label_lines)):
             json_data = json.loads(label_lines[i])
             label_info_list.append(json_data)
-    
-        val_dataset = create_lane_test_dataset(dataset, 
-            os.path.join(local_data_path, 'test_set'), 'test_label.json', cfg.batch_size)
 
-        accEval = TusimpleAccEval
+        val_dataset = create_lane_test_dataset(dataset,
+                                               os.path.join(local_data_path, 'test_set'), 'test_label.json', cfg.batch_size)
+
+        accEval = TusimpleAccEval()
         acc = 0
         total_count = 0
         for data in val_dataset.create_dict_iterator():
@@ -96,22 +96,35 @@ def main():
                 index = batch_index[i]
                 gt_lanes = np.array(label_info_list[index]['lanes'])
                 y_samples = np.array(label_info_list[index]['h_samples'])
-    
+
                 pred_one_img_lanes = accEval.generate_tusimple_lines(
                     results[i], imgs[0, 0].shape, cfg.griding_num)
                 one_img_acc = accEval.bench(pred_one_img_lanes,
                                             gt_lanes, y_samples)
                 acc += one_img_acc
                 total_count += 1
-                if total_count%100==0:
+                if total_count % 100 == 0:
                     print(f'total_count:{total_count}')
         acc = acc / total_count
         print(f'accuracy:{acc}')
-    
+
     elif dataset == 'CULane':
-        val_dataset = create_lane_test_dataset(dataset, 
-            local_data_path, 'list/test.txt'', cfg.batch_size)
-        
+        val_dataset = create_lane_test_dataset(dataset,
+                                               local_data_path, 'list/test.txt', cfg.batch_size)
+        f1_eval = CULaneF1Eval()
+        total_count = 0
+        for data in val_dataset.create_dict_iterator():
+            imgs = data['image']
+            batch_anno_lanes = data['label']
+            results = net(imgs).asnumpy()
+            for i in range(len(results)):
+                cls_out = results[i]
+                anno_lanes = batch_anno_lanes[i]
+                f1_eval.cal_tp_fp_fn(cls_out, anno_lanes, imgs[0, 0].shape, cfg.griding_num)
+                total_count += 1
+                print(f'Eval count:{total_count}')
+        f1 = f1_eval.get_f1()
+        print(f'f1:{f1}')
 
 
 if __name__ == '__main__':

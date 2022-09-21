@@ -112,6 +112,60 @@ class CULaneF1Eval(object):
         self.im_width = im_width
         self.gra = PipartiteGraph()
 
+        self.tp = 0
+        self.fp = 0
+        self.fn = 0
+
+    def get_f1(self):
+        precision = tp * 1.0 / (tp + fp)
+        recall = tp * 1.0 / (tp + fn)
+        f1 = 2 * precision * recall / (precision + recall)
+        return f1
+
+    def generate_detect_lanes(self, out, shape, griding_num, localization_type='abs', flip_updown=False):
+
+        col_sample = np.linspace(0, shape[1] - 1, griding_num)
+        col_sample_w = col_sample[1] - col_sample[0]
+
+        if flip_updown:
+            out = out[:, ::-1, :]
+        if localization_type == 'abs':
+            out = np.argmax(out, axis=0)
+            out[out == griding_num] = -1
+            out = out + 1
+        elif localization_type == 'rel':
+            prob = scipy.special.softmax(out[:-1, :, :], axis=0)
+            idx = np.arange(griding_num) + 1
+            idx = idx.reshape(-1, 1, 1)
+            loc = np.sum(prob * idx, axis=0)
+            out = np.argmax(out, axis=0)
+            loc[out == griding_num] = 0
+            out = loc
+        else:
+            raise NotImplementedError
+
+        detect_lanes = []
+        for i in range(out.shape[1]):
+            if np.sum(out[:, i] != 0) > 2:
+                cur_lane = []
+                for k in range(out.shape[0]):
+                    cur_lane.append(
+                        (int(out[k, i] * col_sample_w * 1640 / 800) - 1, int(590 - k * 20) - 1))
+                detect_lanes.append(cur_lane)
+
+        return detect_lanes
+
+    def cal_tp_fp_fn(self, anno_lanes, cls_out, img_shape, griding_num):
+        detect_lanes = self.generate_detect_lanes(
+            cls_out, img_shape, griding_num, localization_type='rel', flip_updown=True)
+        curr_tp, curr_fp, curr_fn = f1_eval.count_im_pair(
+            anno_lanes, detect_lanes)
+        self.tp += curr_tp
+        self.fp += curr_fp
+        self.fn += curr_fn
+        print(
+            f'tp:{self.tp}, fp:{self.fp}, fn:{self.fn}, curr_tp:{curr_tp}, curr_fp:{curr_fp}, curr_fn:{curr_fn}')
+
     def count_im_pair(self, anno_lanes, detect_lanes):
         if len(anno_lanes) <= 0:
             return (0, len(detect_lanes), 0)
