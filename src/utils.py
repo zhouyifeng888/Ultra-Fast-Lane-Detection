@@ -117,8 +117,8 @@ class CULaneF1Eval(object):
         self.fn = 0
 
     def get_f1(self):
-        precision = tp * 1.0 / (tp + fp)
-        recall = tp * 1.0 / (tp + fn)
+        precision = self.tp * 1.0 / (self.tp + self.fp)
+        recall = self.tp * 1.0 / (self.tp + self.fn)
         f1 = 2 * precision * recall / (precision + recall)
         return f1
 
@@ -158,7 +158,7 @@ class CULaneF1Eval(object):
     def cal_tp_fp_fn(self, anno_lanes, cls_out, img_shape, griding_num):
         detect_lanes = self.generate_detect_lanes(
             cls_out, img_shape, griding_num, localization_type='rel', flip_updown=True)
-        curr_tp, curr_fp, curr_fn = f1_eval.count_im_pair(
+        curr_tp, curr_fp, curr_fn = self.count_im_pair(
             anno_lanes, detect_lanes)
         self.tp += curr_tp
         self.fp += curr_fp
@@ -406,7 +406,7 @@ class PipartiteGraph(object):
 
             while (True):
 
-                if loop_count > 10:
+                if loop_count > 20:
                     print('Prevent endless circulation in python language.')
                     break
 

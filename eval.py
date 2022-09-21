@@ -109,18 +109,45 @@ def main():
         print(f'accuracy:{acc}')
 
     elif dataset == 'CULane':
+
+        culane_list_path = os.path.join(local_data_path, 'list/test.txt')
+        with open(culane_list_path) as f:
+            list_img = f.readlines()
+        all_anno_lanes = []
+        for img_file in list_img:
+            img_file = img_file.strip()
+            if img_file[0] == '/':
+                img_file = img_file[1:]
+            label_file = img_file.replace('.jpg', '.lines.txt')
+            label_path = os.path.join(local_data_path, label_file)
+            with open(label_path) as f:
+                label_lines = f.readlines()
+
+            anno_lanes = []
+            for line in label_lines:
+                cur_lane = []
+                line_info = line.split()
+                for i in range(int(len(line_info) / 2)):
+                    cur_lane.append(
+                        (float(line_info[i * 2]), float(line_info[i * 2 + 1])))
+                anno_lanes.append(cur_lane)
+
+            all_anno_lanes.append(anno_lanes)
+
         val_dataset = create_lane_test_dataset(dataset,
                                                local_data_path, 'list/test.txt', cfg.batch_size)
         f1_eval = CULaneF1Eval()
         total_count = 0
         for data in val_dataset.create_dict_iterator():
             imgs = data['image']
-            batch_anno_lanes = data['label']
+            batch_index = data['index'].asnumpy()
             results = net(imgs).asnumpy()
             for i in range(len(results)):
                 cls_out = results[i]
-                anno_lanes = batch_anno_lanes[i]
-                f1_eval.cal_tp_fp_fn(cls_out, anno_lanes, imgs[0, 0].shape, cfg.griding_num)
+                index = batch_index[i]
+                anno_lanes = all_anno_lanes[index]
+                f1_eval.cal_tp_fp_fn(anno_lanes, cls_out,
+                                     imgs[0, 0].shape, cfg.griding_num)
                 total_count += 1
                 print(f'Eval count:{total_count}')
         f1 = f1_eval.get_f1()
