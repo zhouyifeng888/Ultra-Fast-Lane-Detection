@@ -63,6 +63,7 @@ class LaneTestDataset:
             return img, index
         elif self.dataset=='CULane':
             img_file = self.list[index]
+            img_file = img_file.strip()
             if img_file[0] == '/':
                 img_file = img_file[1:]
             label_file = img_file.replace('.jpg', '.lines.txt')
