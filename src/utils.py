@@ -149,8 +149,9 @@ class CULaneF1Eval(object):
             if np.sum(out[:, i] != 0) > 2:
                 cur_lane = []
                 for k in range(out.shape[0]):
-                    cur_lane.append(
-                        (int(out[k, i] * col_sample_w * 1640 / 800) - 1, int(590 - k * 20) - 1))
+                    if out[k, i] > 0:
+                        cur_lane.append(
+                            (int(out[k, i] * col_sample_w * 1640 / 800) - 1, int(590 - k * 20) - 1))
                 detect_lanes.append(cur_lane)
 
         return detect_lanes
