@@ -278,7 +278,7 @@ def main():
 
     if dataset == 'CULane':
         if cfg.train_url.startswith('s3://') or cfg.train_url.startswith('obs://'):
-            output_path = '/cache/output'
+            output_path = f'/cache/output_{device_id}'
             obs_output_path = cfg.train_url
         else:
             output_path = cfg.train_url
