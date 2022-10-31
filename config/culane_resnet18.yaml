@@ -11,7 +11,7 @@ train_url : '../output'
 device_target : 'Ascend'
 amp_level : 'O0'
 epochs : 50
-batch_size : 32
+batch_size : 8
 optimizer : 'SGD'  #['SGD','Adam']
 lr : 0.1
 weight_decay : 0.0001
